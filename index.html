@@ -1652,8 +1652,8 @@ async function startAnalysis() {
     function extractKeyLines(text) {
       const lines = text.split('\n');
 
-      // 封面資訊：略掉人員/公司資訊，保留產品規格和測試項目總表
-      const SKIP_PATTERNS = [
+      // 略掉人員/公司資訊，保留產品規格
+      const SKIP = [
         /測試人|审核人|審核人|审批人|審批人|申請人|申请人/,
         /申請公司|申请公司|負責人|负责人/,
         /Engineer[:\s]/i,
@@ -1663,42 +1663,47 @@ async function startAnalysis() {
         /结束时间|結束時間/,
         /QR-TBRD|QR-DQC|COPYRIGHT.*DUPLICATION/i,
       ];
-      const headerLines = lines.slice(0, 100).filter(line => {
-        const t = line.trim();
-        if (!t) return false;
-        return !SKIP_PATTERNS.some(pat => pat.test(t));
+      const headerLines = lines.slice(0, 100).filter(l => {
+        const t = l.trim();
+        return t && !SKIP.some(p => p.test(t));
       });
       const header = headerLines.join('\n');
 
-      const result = [];
-      for (const line of lines.slice(80)) {
+      // 分三類收集，確保最重要的先進去
+      const failLines   = [];  // 超標：Margin 負數
+      const passLines   = [];  // PASS/FAIL 結論行
+      const warnLines   = [];  // 接近超標：Margin 0~6
+
+      for (const line of lines.slice(100)) {
         const t = line.trim();
         if (!t || t.length < 3) continue;
-
-        // 1. 含 PASS/FAIL/NG 的摘要行（每個測試項目的結論）
-        if (/PASS|FAIL|NG\b/.test(t)) { result.push(line); continue; }
-
-        // 2. 含負 Margin（超標）的數據行
-        if (/-[0-9]+\.[0-9]/.test(t)) { result.push(line); continue; }
-
-        // 3. Margin < 6 dB（接近超標）的數據行
-        // 格式：...實測值 限值 Margin...，找 Margin 欄位為 0~6 的行
+        if (/-[0-9]+\.[0-9]/.test(t)) { failLines.push(line); continue; }
+        if (/\bFAIL\b|\bNG\b/.test(t))  { passLines.push(line); continue; }
+        if (/\bPASS\b|\bOK\b/.test(t))  { passLines.push(line); continue; }
         const nums = t.match(/-?[0-9]+\.[0-9]+/g);
         if (nums && nums.length >= 3) {
-          const margin = parseFloat(nums[nums.length - 1]);
-          if (!isNaN(margin) && margin >= 0 && margin <= 6) { result.push(line); continue; }
+          const m = parseFloat(nums[nums.length - 1]);
+          if (!isNaN(m) && m >= 0 && m <= 6) { warnLines.push(line); continue; }
         }
       }
 
-      return header + '\n\n--- 關鍵數據行（PASS/FAIL 摘要 + 超標 + Margin<6dB）---\n'
-             + result.join('\n');
+      // 超標行優先，確保 FAIL 原因一定在截取範圍內
+      const dataSection = [
+        '--- 超標數據行（Margin < 0）---',
+        ...failLines,
+        '--- 測試項目結論（PASS/FAIL）---',
+        ...passLines,
+        '--- 接近超標（Margin 0~6dB）---',
+        ...warnLines,
+      ].join('\n');
+
+      return header + '\n\n' + dataSection;
     }
 
     const extracted = extractKeyLines(pdfText);
     addLog('智慧萃取完成（' + extracted.length + ' 字元）', true);
-    const contentToSend = extracted.length > 25000
-      ? extracted.slice(0, 25000) + '\n\n[數據過多，已截取前 25000 字元]'
-      : extracted;
+    // Gemini 2.0 Flash 支援 1M token context，不需要截斷
+    const contentToSend = extracted;
 
     let finalText = null;
     let lastError  = '';
