@@ -1648,10 +1648,57 @@ async function startAnalysis() {
     setStepStatus('ai', 'active');
 
     const prompt = buildPrompt();
-    // llama-4-scout 免費版 TPM 約 30000 tokens，約 20000 中文字元
-    const contentToSend = pdfText.length > 20000
-      ? pdfText.slice(0, 20000) + '\n\n[報告內容過長，已截取前 20000 字元]'
-      : pdfText;
+    // 智慧萃取：封面+測試項目總表 + 所有 PASS/FAIL 摘要行 + 超標/接近超標的數據行
+    function extractKeyLines(text) {
+      const lines = text.split('\n');
+
+      // 封面資訊：略掉人員/公司資訊，保留產品規格和測試項目總表
+      const SKIP_PATTERNS = [
+        /測試人|审核人|審核人|审批人|審批人|申請人|申请人/,
+        /申請公司|申请公司|負責人|负责人/,
+        /Engineer[:\s]/i,
+        /Customer[:\s]/i,
+        /版权.*所有|版權.*所有|不得.*复制|不得.*傳播/,
+        /SN\s*码|SN\s*碼|SN：/,
+        /结束时间|結束時間/,
+        /QR-TBRD|QR-DQC|COPYRIGHT.*DUPLICATION/i,
+      ];
+      const headerLines = lines.slice(0, 100).filter(line => {
+        const t = line.trim();
+        if (!t) return false;
+        return !SKIP_PATTERNS.some(pat => pat.test(t));
+      });
+      const header = headerLines.join('\n');
+
+      const result = [];
+      for (const line of lines.slice(80)) {
+        const t = line.trim();
+        if (!t || t.length < 3) continue;
+
+        // 1. 含 PASS/FAIL/NG 的摘要行（每個測試項目的結論）
+        if (/PASS|FAIL|NG\b/.test(t)) { result.push(line); continue; }
+
+        // 2. 含負 Margin（超標）的數據行
+        if (/-[0-9]+\.[0-9]/.test(t)) { result.push(line); continue; }
+
+        // 3. Margin < 6 dB（接近超標）的數據行
+        // 格式：...實測值 限值 Margin...，找 Margin 欄位為 0~6 的行
+        const nums = t.match(/-?[0-9]+\.[0-9]+/g);
+        if (nums && nums.length >= 3) {
+          const margin = parseFloat(nums[nums.length - 1]);
+          if (!isNaN(margin) && margin >= 0 && margin <= 6) { result.push(line); continue; }
+        }
+      }
+
+      return header + '\n\n--- 關鍵數據行（PASS/FAIL 摘要 + 超標 + Margin<6dB）---\n'
+             + result.join('\n');
+    }
+
+    const extracted = extractKeyLines(pdfText);
+    addLog('智慧萃取完成（' + extracted.length + ' 字元）', true);
+    const contentToSend = extracted.length > 25000
+      ? extracted.slice(0, 25000) + '\n\n[數據過多，已截取前 25000 字元]'
+      : extracted;
 
     let finalText = null;
     let lastError  = '';
