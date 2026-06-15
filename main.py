@@ -14,8 +14,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
-MODEL = "gemini-2.0-flash"
+CEREBRAS_KEY = os.environ.get("CEREBRAS_API_KEY", "")
+GROQ_KEY     = os.environ.get("GROQ_API_KEY", "")
+
+# Cerebras 主力（1M tokens/day，60K TPM），Groq 備用（100K/day，12K TPM）
+PROVIDERS = [
+    {
+        "name": "cerebras/llama-4-scout",
+        "url": "https://api.cerebras.ai/v1/chat/completions",
+        "model": "llama-4-scout",
+        "key_env": "CEREBRAS",
+    },
+    {
+        "name": "cerebras/qwen3-32b",
+        "url": "https://api.cerebras.ai/v1/chat/completions",
+        "model": "qwen-3-32b",
+        "key_env": "CEREBRAS",
+    },
+    {
+        "name": "groq/llama-3.3-70b",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "model": "llama-3.3-70b-versatile",
+        "key_env": "GROQ",
+    },
+]
 
 class ReviewRequest(BaseModel):
     system: str
@@ -23,37 +45,53 @@ class ReviewRequest(BaseModel):
 
 @app.get("/")
 def health():
-    return {"status": "ok", "model": MODEL}
+    return {"status": "ok", "providers": [p["name"] for p in PROVIDERS]}
 
 @app.post("/review")
 async def review(req: ReviewRequest):
-    if not GEMINI_KEY:
-        raise HTTPException(500, "Server: GEMINI_API_KEY not set")
-
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
+    last_error = ""
 
     async with httpx.AsyncClient(timeout=120) as client:
-        resp = await client.post(
-            url,
-            headers={"x-goog-api-key": GEMINI_KEY},
-            json={
-                "system_instruction": {"parts": [{"text": req.system}]},
-                "contents": [{"role": "user", "parts": [{"text": req.user}]}],
-                "generationConfig": {"maxOutputTokens": 8192, "temperature": 0.1}
-            }
-        )
+        for p in PROVIDERS:
+            key = CEREBRAS_KEY if p["key_env"] == "CEREBRAS" else GROQ_KEY
+            if not key:
+                last_error = f"{p['name']}: API key not set"
+                continue
 
-    data = resp.json()
+            try:
+                resp = await client.post(
+                    p["url"],
+                    headers={
+                        "Authorization": f"Bearer {key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": p["model"],
+                        "max_tokens": 4096,
+                        "temperature": 0.1,
+                        "messages": [
+                            {"role": "system", "content": req.system},
+                            {"role": "user",   "content": req.user},
+                        ],
+                    },
+                )
+                data = resp.json()
 
-    if resp.status_code == 401 or resp.status_code == 403:
-        raise HTTPException(401, f"Gemini API Key 無效：{data.get('error',{}).get('message','')}")
-    if resp.status_code == 429:
-        raise HTTPException(429, "Gemini 每分鐘額度已用完，請稍後再試。")
-    if resp.status_code != 200:
-        raise HTTPException(502, f"Gemini API 錯誤 {resp.status_code}：{data.get('error',{}).get('message', str(data)[:300])}")
+                if resp.status_code == 429:
+                    last_error = f"{p['name']}: rate limited"
+                    continue
 
-    text = (data.get("candidates") or [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-    if not text.strip():
-        raise HTTPException(502, "Gemini 回傳空白結果，請重試。")
+                if resp.status_code != 200:
+                    last_error = f"{p['name']}: {data.get('error', {}).get('message', resp.text[:200])}"
+                    continue
 
-    return {"result": text, "model": MODEL}
+                text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if text.strip():
+                    return {"result": text, "model": p["name"]}
+
+                last_error = f"{p['name']}: empty response"
+
+            except Exception as e:
+                last_error = f"{p['name']}: {str(e)}"
+
+    raise HTTPException(502, f"所有模型均失敗：{last_error}")
