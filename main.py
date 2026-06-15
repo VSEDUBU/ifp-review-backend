@@ -22,15 +22,21 @@ GROQ_KEY     = os.environ.get("GROQ_API_KEY", "")
 
 PROVIDERS = [
     {
-        "name": "cerebras/llama3.3-70b",
+        "name": "cerebras/llama-3.3-70b",
         "url": "https://api.cerebras.ai/v1/chat/completions",
-        "model": "llama3.3-70b",
+        "model": "llama-3.3-70b",
         "key_env": "CEREBRAS",
     },
     {
-        "name": "cerebras/llama-4-scout",
+        "name": "cerebras/qwen-3-32b",
         "url": "https://api.cerebras.ai/v1/chat/completions",
-        "model": "llama-4-scout-17b-16e",
+        "model": "qwen-3-32b",
+        "key_env": "CEREBRAS",
+    },
+    {
+        "name": "cerebras/gpt-oss-120b",
+        "url": "https://api.cerebras.ai/v1/chat/completions",
+        "model": "gpt-oss-120b",
         "key_env": "CEREBRAS",
     },
     {
