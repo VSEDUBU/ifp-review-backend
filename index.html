@@ -1648,8 +1648,9 @@ async function startAnalysis() {
     setStepStatus('ai', 'active');
 
     const prompt = buildPrompt();
-    const contentToSend = pdfText.length > 50000
-      ? pdfText.slice(0, 50000) + '\n\n[報告內容過長，已截取前 50000 字元]'
+    // llama-4-scout 免費版 TPM 約 30000 tokens，約 20000 中文字元
+    const contentToSend = pdfText.length > 20000
+      ? pdfText.slice(0, 20000) + '\n\n[報告內容過長，已截取前 20000 字元]'
       : pdfText;
 
     let finalText = null;
