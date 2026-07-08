@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFP 測試報告審核工具 v4.22</title>
+<title>IFP 測試報告審核工具 v4.24</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -1232,7 +1232,7 @@ kbd { background:var(--card); border:1px solid var(--border); border-radius:4px;
     <button class="hdr-btn" onclick="openModal('limitPage')">⚠️ AI 審核限制</button>
     <button class="hdr-btn" onclick="showHistory()" title="最近審核記錄">📋 審核記錄</button>
     <button class="hdr-btn" onclick="copyShareUrl()" title="複製工具網址">🔗 分享工具</button>
-    <span class="version-tag">v4.22 · IFP QC</span>
+    <span class="version-tag">v4.24 · IFP QC</span>
   </div>
 </header>
 
@@ -3690,21 +3690,19 @@ function escapeHtml(s) {
               <th>Context Window</th>
               <th>免費方案</th>
               <th>速度</th>
-              <th>繁中品質</th>
               <th>技術報告<br>理解能力</th>
               <th>需信用卡</th>
             </tr>
           </thead>
           <tbody>
             <!-- Anthropic -->
-            <tr class="provider-header"><td colspan="8">🤖 Anthropic Claude</td></tr>
+            <tr class="provider-header"><td colspan="7">🤖 Anthropic Claude</td></tr>
             <tr>
               <td><strong>Haiku 4.5</strong></td>
               <td>$1 input / $5 output</td>
               <td>200K tokens</td>
               <td>❌ 無（新帳號 $5 試用額度）</td>
               <td>⚡⚡⚡⚡ 極快</td>
-              <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>⭐⭐⭐⭐ 優秀</td>
               <td>✅ 需要</td>
             </tr>
@@ -3725,7 +3723,6 @@ function escapeHtml(s) {
               <td>❌ 無</td>
               <td>⚡⚡ 中等</td>
               <td>⭐⭐⭐⭐⭐ 最強</td>
-              <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>✅ 需要</td>
             </tr>
             <tr class="row-warning">
@@ -3739,7 +3736,7 @@ function escapeHtml(s) {
               <td>✅ 需要（價格為Opus2倍，本工具用途不建議）</td>
             </tr>
             <!-- Google Gemini -->
-            <tr class="provider-header"><td colspan="8">🔷 Google Gemini</td></tr>
+            <tr class="provider-header"><td colspan="7">🔷 Google Gemini</td></tr>
             <tr class="row-warning">
               <td><strong>2.0 Flash</strong></td>
               <td>$0.10 / $0.40</td>
@@ -3766,7 +3763,6 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>✅ 有（5 RPM / 20 RPD）</td>
               <td>⚡⚡⚡⚡ 極快</td>
-              <td>⭐⭐⭐⭐ 良好</td>
               <td>⭐⭐⭐⭐ 優秀</td>
               <td>✅ 需要（付費）</td>
             </tr>
@@ -3777,7 +3773,6 @@ function escapeHtml(s) {
               <td>✅ 有</td>
               <td>⚡⚡⚡⚡⚡ 最快</td>
               <td>⭐⭐⭐ 普通</td>
-              <td>⭐⭐⭐ 普通</td>
               <td>✅ 需要（付費）</td>
             </tr>
             <tr>
@@ -3786,7 +3781,6 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>✅ 有（5 RPM）</td>
               <td>⚡⚡⚡⚡ 極快</td>
-              <td>⭐⭐⭐⭐ 良好</td>
               <td>⭐⭐⭐⭐ 優秀</td>
               <td>✅ 需要（付費）</td>
             </tr>
@@ -3796,7 +3790,6 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>❌ 付費限定（2026/4/1起）</td>
               <td>⚡⚡⚡ 快</td>
-              <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>✅ 需要</td>
             </tr>
@@ -3817,11 +3810,10 @@ function escapeHtml(s) {
               <td>❌ 付費限定</td>
               <td>⚡⚡⚡ 快</td>
               <td>⭐⭐⭐⭐⭐ 最強</td>
-              <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>✅ 需要</td>
             </tr>
             <!-- OpenAI -->
-            <tr class="provider-header"><td colspan="8">🟢 OpenAI（2026/7 現行主力為 GPT-5.4／5.5 系列，GPT-4o 已為舊代）</td></tr>
+            <tr class="provider-header"><td colspan="7">🟢 OpenAI（2026/7 現行主力為 GPT-5.4／5.5 系列，GPT-4o 已為舊代）</td></tr>
             <tr class="row-highlight">
               <td><strong>GPT-4.1 nano</strong></td>
               <td>$0.10 / $0.40</td>
@@ -3839,7 +3831,6 @@ function escapeHtml(s) {
               <td>❌ 無</td>
               <td>⚡⚡⚡⚡ 極快</td>
               <td>⭐⭐⭐ 普通</td>
-              <td>⭐⭐⭐ 普通</td>
               <td>✅ 需要</td>
             </tr>
             <tr>
@@ -3849,7 +3840,6 @@ function escapeHtml(s) {
               <td>❌ 無（$5 試用額度）</td>
               <td>⚡⚡⚡⚡ 極快</td>
               <td>⭐⭐⭐ 普通</td>
-              <td>⭐⭐⭐ 普通</td>
               <td>✅ 需要</td>
             </tr>
             <tr>
@@ -3858,7 +3848,6 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>❌ 無</td>
               <td>⚡⚡⚡⚡ 極快</td>
-              <td>⭐⭐⭐⭐ 良好</td>
               <td>⭐⭐⭐⭐ 優秀</td>
               <td>✅ 需要</td>
             </tr>
@@ -3868,7 +3857,6 @@ function escapeHtml(s) {
               <td>128K tokens</td>
               <td>❌ 無</td>
               <td>⚡⚡⚡ 快</td>
-              <td>⭐⭐⭐⭐ 良好</td>
               <td>⭐⭐⭐⭐ 優秀</td>
               <td>✅ 需要</td>
             </tr>
@@ -3878,7 +3866,6 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>❌ 無</td>
               <td>⚡⚡⚡ 快</td>
-              <td>⭐⭐⭐⭐ 良好</td>
               <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>✅ 需要</td>
             </tr>
@@ -3898,19 +3885,17 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>❌ 無</td>
               <td>⚡⚡ 中等</td>
-              <td>⭐⭐⭐⭐ 良好</td>
               <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>✅ 需要</td>
             </tr>
             <!-- Groq -->
-            <tr class="provider-header"><td colspan="8">⚡ Groq（開源模型，速度最快）</td></tr>
+            <tr class="provider-header"><td colspan="7">⚡ Groq（開源模型，速度最快）</td></tr>
             <tr>
               <td><strong>免費方案</strong></td>
               <td>免費</td>
               <td>128K tokens</td>
               <td>✅ 6,000 TPM / 1,000 RPD</td>
               <td>⚡⚡⚡⚡⚡ 最快</td>
-              <td>⭐⭐ 差</td>
               <td>⭐⭐ 差</td>
               <td>❌ 不需要</td>
             </tr>
@@ -3925,7 +3910,7 @@ function escapeHtml(s) {
               <td>✅ 需要</td>
             </tr>
             <!-- Cerebras -->
-            <tr class="provider-header"><td colspan="8">🧠 Cerebras（開源模型，2026年已大幅放寬免費額度）</td></tr>
+            <tr class="provider-header"><td colspan="7">🧠 Cerebras（開源模型，2026年已大幅放寬免費額度）</td></tr>
             <tr class="row-highlight">
               <td><strong>免費方案</strong></td>
               <td>免費（gpt-oss-120b／GLM-4.7限定）</td>
@@ -3942,7 +3927,6 @@ function escapeHtml(s) {
               <td>131K tokens</td>
               <td>—</td>
               <td>⚡⚡⚡⚡⚡ 最快</td>
-              <td>⭐⭐⭐⭐ 良好</td>
               <td>⭐⭐⭐⭐ 良好</td>
               <td>✅ 需要</td>
             </tr>
@@ -3989,6 +3973,51 @@ function escapeHtml(s) {
         </table>
       </div>
       <p class="compare-note">💡 不管選哪個方案，建議產出後都做一次「有沒有簡體字殘留」的人工抽查，尤其是表格內容跟專有名詞——這是目前唯一能保證100%抓到的方式，不要完全依賴模型自律。</p>
+    </div>
+
+    <!-- 效率與精準度雙排名 -->
+    <div class="compare-section">
+      <h2 class="compare-section-title">🏅 效率排名 vs 精準度排名（兩者不是同一件事，分開列）</h2>
+      <p class="compare-note">⚠️ 效率好的方案通常犧牲精準度，精準度最高的方案通常較貴較慢，這是速度/成本/品質的三角取捨，沒有一個模型同時是兩項第一名。硬要合併成單一排名會掩蓋這個取捨、誤導你的選擇，所以分開列，你依實際情境（預算 vs 報告複雜度）決定要看哪一份。<strong>排名依據是本頁前面已列出的定價、速度、context window等已知規格，加上前面「各報告類型精準度推論對照」的複雜度分析，是綜合排序，不是拿去實測出來的名次。</strong></p>
+
+      <h3 style="margin:20px 0 10px;font-size:16px">🎯 精準度排名（不考慮價格，只看「審核結果可信度」）</h3>
+      <div class="detail-table-wrap">
+        <table class="detail-table">
+          <thead><tr><th style="width:60px">名次</th><th>方案</th><th>理由</th></tr></thead>
+          <tbody>
+            <tr class="row-highlight"><td><strong>🥇 1</strong></td><td><strong>Claude Opus 4.8</strong></td><td>跨報告比對、多步驟矛盾偵測能力最強，但對本工具用途是「殺雞用牛刀」，價格是Sonnet 5的2.5倍，精準度提升幅度不足以說服多花這筆錢</td></tr>
+            <tr class="row-highlight"><td><strong>🥈 2</strong></td><td><strong>Claude Sonnet 5</strong></td><td>高複雜度類型（EMI/EMS/降額/能效/安規）表現與Opus 4.8差距很小，加上目前優惠價，是精準度與價格平衡點最好的選擇</td></tr>
+            <tr><td><strong>🥉 3</strong></td><td>Claude Haiku 4.5</td><td>中低複雜度類型可靠，高複雜度類型的多層矛盾偵測偶有遺漏，但仍優於非Claude系列</td></tr>
+            <tr><td>4</td><td>Gemini 3.1 Pro／GPT-5.5</td><td>基本判定能力不錯，但「質疑報告本身」（門檻被改變、共因性缺陷聚合）這類邏輯較弱</td></tr>
+            <tr><td>5</td><td>Gemini 3.5 Flash／GPT-5.4</td><td>中複雜度以下表現尚可，高複雜度類型建議加強人工複查</td></tr>
+            <tr><td>6</td><td>Gemini 3 Flash／GPT-5.4 mini</td><td>簡單規格比對可以，複雜推理不穩定</td></tr>
+            <tr><td>7（並列）</td><td>Gemini Flash-Lite系列／GPT-4.1 nano／Groq／Cerebras</td><td>只適合低複雜度、結構化程度高的報告（USB/晶振/OTA），高複雜度類型不建議</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="margin:20px 0 10px;font-size:16px">⚡ 效率排名（速度＋成本效益，同樣預算下能跑最多份、最快拿到結果）</h3>
+      <div class="detail-table-wrap">
+        <table class="detail-table">
+          <thead><tr><th style="width:60px">名次</th><th>方案</th><th>理由</th></tr></thead>
+          <tbody>
+            <tr class="row-highlight"><td><strong>🥇 1</strong></td><td><strong>Groq Dev Tier（付費）</strong></td><td>500+ TPS業界最快，$0.59/M輸入極便宜，6人每月估計&lt;$3；缺點是精準度只夠低複雜度類型，高複雜度類型要另外找方案</td></tr>
+            <tr class="row-highlight"><td><strong>🥈 2</strong></td><td><strong>Cerebras 免費方案</strong></td><td>2026年放寬到每日100萬tokens免費、1000+ TPS，完全不用錢就能跑量，速率限制（5RPM）是唯一瓶頸，適合批次非即時處理</td></tr>
+            <tr><td><strong>🥉 3</strong></td><td>Gemini 2.5 Flash-Lite（付費）</td><td>$0.10/M全場最低價之一，速度快，6人每月估計&lt;$1，CP值高但精準度同樣只夠低複雜度</td></tr>
+            <tr><td>4</td><td>Claude Haiku 4.5</td><td>速度快（⚡⚡⚡⚡）、精準度中高，是「效率」與「精準度」都不差的均衡選項，不是任何一項的第一名，但整體CP值很高</td></tr>
+            <tr><td>5</td><td>GPT-5.4 mini／GPT-4.1 nano</td><td>速度快、價格中低，但中文輸出品質仍是扣分項，需要額外人工複查抵銷部分效率優勢</td></tr>
+            <tr><td>6</td><td>Claude Sonnet 5</td><td>優惠期價格尚可接受，但速度只是「快」不是「最快」，效率排名上不如Groq/Cerebras/Flash-Lite</td></tr>
+            <tr><td>7</td><td>Claude Opus 4.8／Fable 5／GPT-5.5</td><td>速度中等、價格最高，效率角度不划算，除非真的需要最高精準度</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="margin:20px 0 10px;font-size:16px">💡 綜合建議（如果只能選一個）</h3>
+      <p class="compare-note">
+      如果你要一個「不用想太多、大部分情境都夠用」的單一選擇：<strong>Claude Sonnet 5</strong>（目前優惠價期間）——它不是效率排名第一，但精準度排名前二，價格在優惠期間跟Haiku接近，屬於「精準度優先、效率也不算差」的選擇，適合你不想為了省小錢而在高複雜度報告（EMI/EMS/降額/能效/安規）上冒錯判風險的情況。<br><br>
+      如果你的報告大部分是低複雜度類型（USB/晶振/OTA居多），或審核量非常大、預算優先：<strong>Groq Dev Tier 或 Cerebras 免費方案</strong>——效率排名前二，精準度雖然較弱，但對結構化程度高的報告類型影響有限。<br><br>
+      <strong>不建議「一套方案打天下」</strong>：本頁前面「各報告類型精準度推論對照」已經說明，按報告複雜度分流用不同方案（高複雜度用Claude、低複雜度用便宜方案）是最划算的做法，硬要選一個單一排名第一的方案去處理所有18種類型，反而不是最佳解。
+      </p>
     </div>
 
     <!-- 各報告類型精準度對照 -->
@@ -4578,14 +4607,15 @@ function escapeHtml(s) {
           </div>
           <div class="ldc-section">
             <div class="ldc-label">🔍 不同 AI 模型的差異</div>
+            <p style="font-size:13px;color:#666;margin-bottom:8px">💡 中文輸出品質的詳細評估（尤其是簡體來源轉繁體的可靠度）請見「付費API方案比較」頁的「簡體轉繁體能力」區塊，這裡只列理解能力與計算準確度。</p>
             <div class="impact-table">
               <table>
-                <thead><tr><th>AI 模型</th><th>理解能力</th><th>計算準確度</th><th>繁中品質</th></tr></thead>
+                <thead><tr><th>AI 模型</th><th>理解能力</th><th>計算準確度</th></tr></thead>
                 <tbody>
-                  <tr><td>Claude Sonnet 5（付費）</td><td class="acc-high">⭐⭐⭐⭐⭐</td><td class="acc-high">⭐⭐⭐⭐⭐</td><td class="acc-high">⭐⭐⭐⭐⭐</td></tr>
-                  <tr><td>Claude Haiku 4.5（付費）</td><td class="acc-high">⭐⭐⭐⭐</td><td class="acc-high">⭐⭐⭐⭐</td><td class="acc-high">⭐⭐⭐⭐⭐</td></tr>
-                  <tr><td>Groq Llama 3.3 70B（免費）</td><td class="acc-mid">⭐⭐⭐</td><td class="acc-mid">⭐⭐⭐</td><td class="acc-low">⭐⭐</td></tr>
-                  <tr><td>Cerebras gpt-oss-120b（免費）</td><td class="acc-mid">⭐⭐⭐</td><td class="acc-mid">⭐⭐</td><td class="acc-low">⭐⭐</td></tr>
+                  <tr><td>Claude Sonnet 5（付費）</td><td class="acc-high">⭐⭐⭐⭐⭐</td><td class="acc-high">⭐⭐⭐⭐⭐</td></tr>
+                  <tr><td>Claude Haiku 4.5（付費）</td><td class="acc-high">⭐⭐⭐⭐</td><td class="acc-high">⭐⭐⭐⭐</td></tr>
+                  <tr><td>Groq Llama 3.3 70B（免費）</td><td class="acc-mid">⭐⭐⭐</td><td class="acc-mid">⭐⭐⭐</td></tr>
+                  <tr><td>Cerebras gpt-oss-120b（免費）</td><td class="acc-mid">⭐⭐⭐</td><td class="acc-mid">⭐⭐</td></tr>
                 </tbody>
               </table>
             </div>
