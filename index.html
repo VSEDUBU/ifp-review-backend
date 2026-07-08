@@ -1402,18 +1402,14 @@ kbd { background:var(--card); border:1px solid var(--border); border-radius:4px;
 
     <!-- 上傳區（Claude 模式用） -->
     <div class="panel-section">
-      <div class="panel-section-title">📂 上傳測試報告</div>
-      <div id="claudeUploadZone" tabindex="0" role="button" aria-label="上傳 PDF 測試報告（Claude 模式）" class="upload-zone" onclick="document.getElementById('claudeFileInput').click()">
-        <input type="file" id="claudeFileInput" accept=".pdf" onchange="handleClaudeFile(event)" style="display:none">
+      <div class="panel-section-title">📂 上傳測試報告（可一次選取多份、多種類型批次分析比對）</div>
+      <div id="claudeUploadZone" tabindex="0" role="button" aria-label="上傳 PDF 測試報告（Claude 模式，支援多檔）" class="upload-zone" onclick="document.getElementById('claudeFileInput').click()">
+        <input type="file" id="claudeFileInput" accept=".pdf" multiple onchange="handleClaudeFile(event)" style="display:none">
         <div class="upload-icon">📂</div>
-        <div class="upload-text">點擊或拖曳上傳 PDF</div>
-        <div class="upload-sub">任何供應商格式均支援</div>
+        <div class="upload-text">點擊或拖曳上傳 PDF（可複選多份）</div>
+        <div class="upload-sub">任何供應商格式均支援，可混合不同測試類型一次批次上傳</div>
       </div>
-      <div id="claudeFileInfo" style="display:none" class="file-selected">
-        <span>📄</span>
-        <span class="fname" id="claudeFileName"></span>
-        <button class="file-clear" onclick="clearClaudeFile()">✕</button>
-      </div>
+      <div id="claudeFileList" style="display:none"></div>
     </div>
 
     <!-- Claude 說明 + 送出 -->
@@ -1421,7 +1417,7 @@ kbd { background:var(--card); border:1px solid var(--border); border-radius:4px;
       <div class="cm-icon">🤖</div>
       <div>
         <div class="cm-title">Claude.ai 模式</div>
-        <div class="cm-sub">工具組合審核 Prompt → 開啟 Claude.ai → 上傳 PDF → Claude 自動產出含 Download 按鈕的審核報告</div>
+        <div class="cm-sub">工具組合審核 Prompt → 開啟 Claude.ai → 上傳 PDF（可批次多份） → Claude 自動產出精簡回覆＋可下載的 Excel 審核報告</div>
         <div id="cmTypeReminder" style="display:none;margin-top:8px;padding:8px 12px;background:#fffbe6;border:1px solid #fde68a;border-radius:6px;font-size:12px;color:#92400e">
           ⚠️ 目前選擇類型為 <strong id="cmCurrentType"></strong>，若不確定請選「AUTO 自動識別」
         </div>
@@ -1486,8 +1482,9 @@ let detailMode = true;
 let fileBase64 = null;
 let _analysisController = null;
 let _coldTimer = null;
-let claudeFileBase64 = null;   // Claude 模式的 PDF
-let claudeSelectedFile = null; // Claude 模式的檔案
+let claudeFileBase64 = null;   // Claude 模式的 PDF（向下相容：指向清單第一份）
+let claudeSelectedFile = null; // Claude 模式的檔案（向下相容：指向清單第一份）
+let claudeFilesList = [];      // Claude 模式批次檔案清單：[{file, name, base64}]
 
 window.addEventListener('load', () => {
   updateAnalyzeBtn();
@@ -2239,6 +2236,15 @@ ${rule}
     '',
     '---',
     '',
+    '【批次多份報告時的處理原則（重要，若本次只有單一報告則略過此節）】',
+    '- 若本次收到多份不同的PDF報告（可能是不同測試類型、不同階段版本、或同型號的系列報告），每一份都要先依其實際內容判斷所屬類型（不要用檔名判斷），分別套用對應的typeSpecificRules獨立審核，不可把不同報告的內容混在一起判斷',
+    '- 逐項審核明細工作表（Detail）新增一欄「來源報告」，填入該列所屬的原始檔名，讓PDM清楚知道每一列數據來自哪一份報告',
+    '- 總覽工作表（Summary）除了整體統計，另外列出一張「批次報告清單」小表：每一列對應一份收到的報告，欄位為「檔名 / 判定的報告類型 / 總審核項數 / PASS / WARN / FAIL / CONTRADICTION / 整體結論」，讓PDM一眼看出這批裡哪幾份報告有問題、哪幾份乾淨',
+    '- 若各報告之間存在跨報告關聯（如同型號EVT/DVT不同階段、同一元件在不同報告出現），比照既有規則做跨報告比對（規格門檻變更、料號差異合理性判斷等），並在「問題項目彙總」工作表裡標明是屬於單一報告內的問題，還是跨報告比對出的問題',
+    '- 報告數量較多時，可考慮依報告類型分別建立獨立的Detail分頁（如「Detail_EMI」「Detail_安規」），但「批次報告清單」與「問題項目彙總」維持整合在同一張總覽性工作表，方便快速掃視全局',
+    '',
+    '---',
+    '',
     '【工作表一：總覽 Summary】',
     '- A1合併儲存格標題：報告名稱＋型號＋測試日期＋報告編號，藍底白字，字級16，列高加大',
     '- 下方統計區塊（用有底色的儲存格模擬卡片感）：總審核項 / PASS數 / WARN數 / FAIL數 / CONTRADICTION數，各自用綠/黃/紅/紫的淺色底填滿對應數字儲存格',
@@ -2273,8 +2279,13 @@ ${rule}
     '- 用來讓PDM或主管快速看到需要留意的項目清單，不需要在滿版明細表裡逐列找',
     '',
     '【檔案輸出】',
-    '- 檔名格式：型號_測試類型_審核報告_日期.xlsx',
-    '- 產生後提供下載連結，並在對話中簡短說明檔案包含幾個工作表、各自用途',
+    '- 檔名格式：型號_測試類型_審核報告_日期.xlsx（若為批次多份，用「型號_批次審核報告_日期.xlsx」或以主要型號命名）',
+    '- 產生後提供下載連結',
+    '',
+    '【回覆精簡度要求（重要）】',
+    '- Excel檔案產生完成後，對話中只需一句話：「已完成審核，共N份報告/共X項，請下載Excel查看」，附上下載連結即可',
+    '- **不要**在對話中逐一介紹工作表結構、不要重複條列審核邏輯或規則內容、不要摘述每一項的判定理由——這些內容都已經在Excel檔案裡了，對話裡重複講一次沒有意義，只會拉長PDM要看的文字',
+    '- 例外狀況才需要額外說明：例如遇到CONTRADICTION等級的重大發現，或報告內容與typeSpecificRules設定的類型明顯不符（如檔名與實際內容不同），這類需要PDM特別注意的重要提醒可以用1-2句話點出，但不要展開細節（細節一樣寫在Excel裡）',
   ].join('\n');
 
   return { system: systemPrompt, user: userPrompt, htmlInstruction: htmlOutputInstruction };
@@ -2785,7 +2796,7 @@ function updateClaudePanel() {
   const previewBox = document.getElementById('claudePromptPreview');
   const hint       = document.getElementById('claudeCopiedHint');
 
-  const hasFile = !!(claudeFileBase64 || fileBase64);
+  const hasFile = claudeFilesList.length > 0 || !!fileBase64;
   if (!hasFile) {
     if (prepareMsg) prepareMsg.style.display = 'flex';
     if (sendArea)   sendArea.style.display   = 'none';
@@ -2795,9 +2806,18 @@ function updateClaudePanel() {
 
   // 組合 Prompt
   const p = buildPrompt();
-  const fname = (claudeSelectedFile || selectedFile)?.name || 'report.pdf';
-  const previewPrompt = p.system + '\n\n---\n\n' + p.user +
-    '\n[附件：' + fname + '（請在 Claude.ai 上傳此 PDF）]';
+  const fileNames = claudeFilesList.length
+    ? claudeFilesList.map(e => e.name)
+    : [(selectedFile)?.name || 'report.pdf'];
+
+  const isBatch = fileNames.length > 1;
+  const attachmentNote = isBatch
+    ? '\n[本次為批次分析，共 ' + fileNames.length + ' 份附件，請在 Claude.ai 上傳以下全部PDF：\n' +
+      fileNames.map((n, i) => '  ' + (i+1) + '. ' + n).join('\n') +
+      '\n請針對每一份報告依其實際內容分別套用對應的typeSpecificRules進行審核，並在最終輸出時清楚區分各份報告各自的結果，不要混在一起。]'
+    : '\n[附件：' + fileNames[0] + '（請在 Claude.ai 上傳此 PDF）]';
+
+  const previewPrompt = p.system + '\n\n---\n\n' + p.user + attachmentNote;
   const fullClaudePrompt = previewPrompt + (p.htmlInstruction || '');
 
   const previewLen = 1500;
@@ -3359,52 +3379,89 @@ function downloadAutoResult(format) {
 
 // ── Claude 模式上傳 ──────────────────────────────────────────
 function handleClaudeFile(evt) {
-  const file = evt.target.files[0];
-  if (!file || file.type !== 'application/pdf') {
-    showToast('請選擇 PDF 檔案', 'warn'); return;
-  }
+  const files = Array.from(evt.target.files || []);
+  if (!files.length) return;
   const MAX_MB = 20;
-  if (file.size > MAX_MB * 1024 * 1024) {
-    showToast('檔案太大（' + (file.size/1024/1024).toFixed(1) + ' MB），建議上限 ' + MAX_MB + ' MB', 'error', 5000); return;
-  }
-  claudeSelectedFile = file;
-  const zone = document.getElementById('claudeUploadZone');
-  const info = document.getElementById('claudeFileInfo');
-  const fnEl = document.getElementById('claudeFileName');
-  if (zone) zone.style.display = 'none';
-  if (info) info.style.display = 'flex';
-  if (fnEl)  fnEl.textContent = file.name + ' (' + (file.size/1024).toFixed(0) + ' KB)';
+  const MAX_FILES = 15;
 
-  // 讀取 base64
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const arr = new Uint8Array(e.target.result);
-    const chunks = [];
-    for (let i = 0; i < arr.length; i += 8192) {
-      chunks.push(String.fromCharCode.apply(null, arr.subarray(i, i+8192)));
+  if (claudeFilesList.length + files.length > MAX_FILES) {
+    showToast('單次批次最多支援 ' + MAX_FILES + ' 份檔案', 'warn', 5000);
+  }
+
+  let addedCount = 0;
+  files.forEach(file => {
+    if (claudeFilesList.length >= MAX_FILES) return;
+    if (file.type !== 'application/pdf') {
+      showToast('「' + file.name + '」不是 PDF，已略過', 'warn'); return;
     }
-    claudeFileBase64 = btoa(chunks.join(''));
-    updateClaudePanel();
-  };
-  reader.readAsArrayBuffer(file);
+    if (file.size > MAX_MB * 1024 * 1024) {
+      showToast('「' + file.name + '」太大（' + (file.size/1024/1024).toFixed(1) + ' MB），已略過，建議上限 ' + MAX_MB + ' MB', 'error', 5000); return;
+    }
+    const entry = { file, name: file.name, base64: null };
+    claudeFilesList.push(entry);
+    addedCount++;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const arr = new Uint8Array(e.target.result);
+      const chunks = [];
+      for (let i = 0; i < arr.length; i += 8192) {
+        chunks.push(String.fromCharCode.apply(null, arr.subarray(i, i+8192)));
+      }
+      entry.base64 = btoa(chunks.join(''));
+      // 向下相容：指標指向清單第一份
+      if (claudeFilesList[0] === entry) {
+        claudeSelectedFile = entry.file;
+        claudeFileBase64 = entry.base64;
+      }
+      renderClaudeFileList();
+      updateClaudePanel();
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  evt.target.value = ''; // 允許重複選取同一批檔案
+  renderClaudeFileList();
 }
 
-function clearClaudeFile() {
-  claudeSelectedFile = null;
-  claudeFileBase64 = null;
-  const zone = document.getElementById('claudeUploadZone');
-  const info = document.getElementById('claudeFileInfo');
-  const inp  = document.getElementById('claudeFileInput');
-  if (zone) zone.style.display = '';
-  if (info) info.style.display = 'none';
-  if (inp)  inp.value = '';
-  // Reset send area
-  const sendArea  = document.getElementById('claudeSendArea');
-  const prepMsg   = document.getElementById('claudePrepareMsg');
-  const copiedHint = document.getElementById('claudeCopiedHint');
-  if (sendArea)  sendArea.style.display = 'none';
-  if (prepMsg)   prepMsg.style.display  = 'flex';
-  if (copiedHint) copiedHint.style.display = 'none';
+function removeClaudeFile(idx) {
+  claudeFilesList.splice(idx, 1);
+  if (claudeFilesList.length) {
+    claudeSelectedFile = claudeFilesList[0].file;
+    claudeFileBase64 = claudeFilesList[0].base64;
+  } else {
+    claudeSelectedFile = null;
+    claudeFileBase64 = null;
+  }
+  renderClaudeFileList();
+  updateClaudePanel();
+}
+
+function renderClaudeFileList() {
+  const listEl = document.getElementById('claudeFileList');
+  if (!listEl) return;
+  if (!claudeFilesList.length) {
+    listEl.style.display = 'none';
+    listEl.innerHTML = '';
+    return;
+  }
+  listEl.style.display = 'block';
+  const rows = claudeFilesList.map((entry, idx) => {
+    const sizeKB = (entry.file.size / 1024).toFixed(0);
+    const ready = entry.base64 ? '' : '（讀取中…）';
+    return '<div class="file-selected" style="margin-top:6px">' +
+      '<span>📄</span>' +
+      '<span class="fname">' + escapeHtml(entry.name) + ' (' + sizeKB + ' KB)' + ready + '</span>' +
+      '<button class="file-clear" onclick="removeClaudeFile(' + idx + ')">✕</button>' +
+      '</div>';
+  }).join('');
+  const summary = '<div style="font-size:12px;color:#666;margin-bottom:4px">已選取 ' + claudeFilesList.length + ' 份檔案' +
+    (claudeFilesList.length > 1 ? '，將以批次比對模式分析' : '') + '</div>';
+  listEl.innerHTML = summary + rows;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 </script>
