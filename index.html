@@ -1484,7 +1484,70 @@ let _analysisController = null;
 let _coldTimer = null;
 let claudeFileBase64 = null;   // Claude 模式的 PDF（向下相容：指向清單第一份）
 let claudeSelectedFile = null; // Claude 模式的檔案（向下相容：指向清單第一份）
-let claudeFilesList = [];      // Claude 模式批次檔案清單：[{file, name, base64}]
+let claudeFilesList = [];      // Claude 模式批次檔案清單：[{file, name, base64, guessedType, userType}]
+
+// 類型代碼 → 中文標籤（給批次分類UI顯示用）
+const TYPE_LABELS = {
+  AUTO: 'AI自動識別', EMI: 'EMI電磁騷擾', EMS: 'EMS電磁抗擾度', ELEC: '電氣性能測試',
+  VOLTAGE_RIPPLE: '電壓與紋波測試', DERATING: '元件降額測試', CRYSTAL: '晶振頻偏測試',
+  PWR_TIMING: '電源時序測試', USB2_HUB: 'USB2.0 Hub訊號測試', USB2_DEVICE: 'USB2.0 Device訊號測試',
+  USB3_HOST: 'USB3.x訊號測試', DIFF_IMPEDANCE: '差分阻抗測試', RELIABILITY_CVTE: '可靠性試驗',
+  TEMP_RISE: '溫升試驗', SAFETY_IEC62368: 'IEC62368安規測試', ENERGY_EFFICIENCY: '能效測試',
+  OTA_WIRELESS: 'OTA無線性能測試', SOFTWARE_FUNCTIONAL: '整機軟體功能測試', OTHER: '其他/未知類型'
+};
+
+// 批次上傳時的關鍵字分類規則（僅供初步分類參考，Claude最終仍以報告實際內容為準）
+const TYPE_KEYWORDS = {
+  EMI: [/EN\s*55032/i, /GB\/?T\s*9254/i, /辐射骚扰|輻射騷擾/i, /传导骚扰|傳導騷擾/i, /谐波电流|諧波電流/i, /闪烁|閃爍/i, /IEC\s*61000-3-[23]/i],
+  EMS: [/EN\s*55035/i, /IEC\s*61000-4-[24511]/i, /静电放电|靜電放電/i, /抗扰度|抗擾度/i, /Criterion\s*[ABCD]\b/],
+  SAFETY_IEC62368: [/IEC\s*62368/i, /接触电流|接觸電流/i, /\bLPS\b/, /介电强度|介電強度/i, /绝缘电阻|絕緣電阻/i, /耐压|耐壓/],
+  TEMP_RISE: [/温升|溫升/, /temperature rise/i, /可触及表面|可觸及表面/, /Tc\s*[（(]/],
+  ENERGY_EFFICIENCY: [/2019\/2021/, /2019\/2013/, /energy efficiency/i, /待机功耗|待機功耗/, /\bEEI\b/],
+  OTA_WIRELESS: [/\bTRP\b/, /\bTIS\b/, /\bCTIA\b/, /无线性能|無線性能/, /蓝牙|藍牙/],
+  DERATING: [/降额|降額/, /derating/i, /Waste.*Warning/i, /Component\s*Spec/i],
+  VOLTAGE_RIPPLE: [/纹波|紋波/, /\bripple\b/i, /电气性能压流|電氣性能壓流/],
+  CRYSTAL: [/晶振/, /crystal.*ppm/i, /frequency deviation/i],
+  PWR_TIMING: [/电源时序|電源時序/, /power sequence/i, /上电时序|上電時序/],
+  USB3_HOST: [/USB\s*3\.[012x]/i, /\bLFPS\b/, /SuperSpeed/i, /\bTSSC\b/],
+  USB2_HUB: [/USB\s*2\.0.*Hub/i, /Hi-?Speed.*Eye/i],
+  USB2_DEVICE: [/USB\s*2\.0.*Device/i],
+  DIFF_IMPEDANCE: [/差分阻抗/, /differential impedance/i, /\bTDR\b/],
+  RELIABILITY_CVTE: [/可靠性/, /reliability test/i, /跌落/, /振动|振動/, /温度循环|溫度循環/],
+  ELEC: [/屏时序|屏時序/, /\bVBO\b/, /Clock and Data/i, /开关机时序|開關機時序/, /声学测试|聲學測試/, /眼图|眼圖/],
+  SOFTWARE_FUNCTIONAL: [/软件测试|軟體測試/, /功能测试|功能測試/, /test case/i, /缺陷等级|缺陷等級/],
+};
+
+function guessReportType(text) {
+  if (!text || text.length < 20) return 'AUTO';
+  let bestType = 'AUTO', bestScore = 0;
+  for (const [type, patterns] of Object.entries(TYPE_KEYWORDS)) {
+    let score = 0;
+    patterns.forEach(re => { const m = text.match(new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g')); if (m) score += m.length; });
+    if (score > bestScore) { bestScore = score; bestType = type; }
+  }
+  return bestScore > 0 ? bestType : 'AUTO';
+}
+
+// 輕量PDF文字取樣（僅供分類辨識用，只讀前5頁，不追求完整）
+async function extractSampleText(base64) {
+  try {
+    if (typeof pdfjsLib === 'undefined') return '';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdfDoc = await pdfjsLib.getDocument({
+      data: Uint8Array.from(atob(base64), c => c.charCodeAt(0)),
+      useWorkerFetch: false, isEvalSupported: false, useSystemFonts: true, disableRange: true, disableAutoFetch: true
+    }).promise;
+    const pages = Math.min(pdfDoc.numPages, 5);
+    let text = '';
+    for (let i = 1; i <= pages; i++) {
+      const page = await pdfDoc.getPage(i);
+      const tc = await page.getTextContent();
+      text += tc.items.map(x => x.str).join(' ') + '\n';
+      if (text.length > 8000) break;
+    }
+    return text.slice(0, 8000);
+  } catch (e) { return ''; }
+}
 
 window.addEventListener('load', () => {
   updateAnalyzeBtn();
@@ -1673,7 +1736,7 @@ function setStepStatus(id, status) {
   }
 }
 
-function buildPrompt() {
+function buildPrompt(batchFileTypes) {
   const stage    = document.getElementById('stage').value;
 
   const categoryHints = {
@@ -2171,7 +2234,23 @@ Peak luminance ratio < 65% → WARN（測試前提可能無效）
 結果開頭說明：「識別為 XXX 測試報告，套用 XXX 審核規則。」`
   };
 
-  const rule = UNIVERSAL_CHECKLIST + '\n\n' + (typeSpecificRules[selectedType] || typeSpecificRules['OTHER']);
+  let rule;
+  if (batchFileTypes && batchFileTypes.length >= 1) {
+    // 批次模式：依每份檔案判斷的類型分組，組合對應規則各自標明適用檔案
+    const byType = {};
+    batchFileTypes.forEach(f => {
+      const t = f.type || 'AUTO';
+      (byType[t] = byType[t] || []).push(f.name);
+    });
+    const blocks = Object.entries(byType).map(([t, names]) => {
+      const ruleText = typeSpecificRules[t] || typeSpecificRules['OTHER'];
+      const label = TYPE_LABELS[t] || t;
+      return `### 適用檔案：${names.join('、')}\n（工具初步判斷類型：${label}。這是輔助判斷，並非絕對正確——請以報告實際內容為準，若內容明顯不符此類型，請依實際內容改套用對應規則，並在「報告基本資訊」中如實標註實際類型與此初步判斷不同）\n\n${ruleText}`;
+    }).join('\n\n---\n\n');
+    rule = UNIVERSAL_CHECKLIST + '\n\n' + blocks;
+  } else {
+    rule = UNIVERSAL_CHECKLIST + '\n\n' + (typeSpecificRules[selectedType] || typeSpecificRules['OTHER']);
+  }
 
   // system：角色定義 + 規則 + 強制格式（這層模型服從度最高）
   const systemPrompt = `你是一位資深硬體測試工程師，負責審核 IFP 互動式電子白板開發階段的測試報告。
@@ -2804,8 +2883,11 @@ function updateClaudePanel() {
     return;
   }
 
-  // 組合 Prompt
-  const p = buildPrompt();
+  // 組合 Prompt（若為新版多檔清單，帶入各檔案判斷的類型）
+  const batchFileTypes = claudeFilesList.length
+    ? claudeFilesList.map(e => ({ name: e.name, type: e.userType || e.guessedType || 'AUTO' }))
+    : null;
+  const p = buildPrompt(batchFileTypes);
   const fileNames = claudeFilesList.length
     ? claudeFilesList.map(e => e.name)
     : [(selectedFile)?.name || 'report.pdf'];
@@ -3397,7 +3479,7 @@ function handleClaudeFile(evt) {
     if (file.size > MAX_MB * 1024 * 1024) {
       showToast('「' + file.name + '」太大（' + (file.size/1024/1024).toFixed(1) + ' MB），已略過，建議上限 ' + MAX_MB + ' MB', 'error', 5000); return;
     }
-    const entry = { file, name: file.name, base64: null };
+    const entry = { file, name: file.name, base64: null, guessedType: null, userType: null };
     claudeFilesList.push(entry);
     addedCount++;
 
@@ -3416,6 +3498,13 @@ function handleClaudeFile(evt) {
       }
       renderClaudeFileList();
       updateClaudePanel();
+
+      // 背景執行分類辨識，完成後更新清單顯示
+      extractSampleText(entry.base64).then(sample => {
+        entry.guessedType = guessReportType(sample);
+        renderClaudeFileList();
+        updateClaudePanel();
+      });
     };
     reader.readAsArrayBuffer(file);
   });
@@ -3437,6 +3526,12 @@ function removeClaudeFile(idx) {
   updateClaudePanel();
 }
 
+function setClaudeFileType(idx, val) {
+  if (!claudeFilesList[idx]) return;
+  claudeFilesList[idx].userType = val || null;
+  updateClaudePanel();
+}
+
 function renderClaudeFileList() {
   const listEl = document.getElementById('claudeFileList');
   if (!listEl) return;
@@ -3446,18 +3541,57 @@ function renderClaudeFileList() {
     return;
   }
   listEl.style.display = 'block';
+  const typeOptions = Object.entries(TYPE_LABELS)
+    .map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+
   const rows = claudeFilesList.map((entry, idx) => {
     const sizeKB = (entry.file.size / 1024).toFixed(0);
-    const ready = entry.base64 ? '' : '（讀取中…）';
-    return '<div class="file-selected" style="margin-top:6px">' +
+    let statusHtml;
+    if (!entry.base64) {
+      statusHtml = '<span style="color:#999;font-size:12px">讀取中…</span>';
+    } else if (!entry.guessedType) {
+      statusHtml = '<span style="color:#999;font-size:12px">🔍 辨識類型中…</span>';
+    } else {
+      const effective = entry.userType || entry.guessedType;
+      const isOverridden = entry.userType && entry.userType !== entry.guessedType;
+      statusHtml = '<span style="font-size:12px;color:#4a6ef5">工具判斷：' + (TYPE_LABELS[entry.guessedType] || entry.guessedType) + '</span>' +
+        (isOverridden ? ' <span style="font-size:12px;color:#dc2626">（已手動改為：' + TYPE_LABELS[entry.userType] + '）</span>' : '') +
+        ' <select style="font-size:12px;margin-left:6px" onchange="setClaudeFileType(' + idx + ', this.value)">' +
+        '<option value="">— 採用工具判斷 —</option>' + typeOptions + '</select>';
+    }
+    return '<div class="file-selected" style="margin-top:6px;flex-wrap:wrap">' +
       '<span>📄</span>' +
-      '<span class="fname">' + escapeHtml(entry.name) + ' (' + sizeKB + ' KB)' + ready + '</span>' +
+      '<span class="fname">' + escapeHtml(entry.name) + ' (' + sizeKB + ' KB)</span>' +
       '<button class="file-clear" onclick="removeClaudeFile(' + idx + ')">✕</button>' +
+      '<div style="width:100%;margin-top:4px">' + statusHtml + '</div>' +
       '</div>';
   }).join('');
-  const summary = '<div style="font-size:12px;color:#666;margin-bottom:4px">已選取 ' + claudeFilesList.length + ' 份檔案' +
-    (claudeFilesList.length > 1 ? '，將以批次比對模式分析' : '') + '</div>';
+  const summary = '<div style="font-size:12px;color:#666;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">' +
+    '<span>已選取 ' + claudeFilesList.length + ' 份檔案' + (claudeFilesList.length > 1 ? '，將以批次比對模式分析（每份報告會依判斷的類型分別套用對應規則）' : '') + '</span>' +
+    '<button class="file-clear" style="position:static" onclick="clearAllClaudeFiles()" title="清除全部檔案與已產生的Prompt">🗑 清除全部</button>' +
+    '</div>';
   listEl.innerHTML = summary + rows;
+}
+
+function clearAllClaudeFiles() {
+  claudeFilesList = [];
+  claudeSelectedFile = null;
+  claudeFileBase64 = null;
+  const inp = document.getElementById('claudeFileInput');
+  if (inp) inp.value = '';
+  renderClaudeFileList();
+
+  // 一併清除已產生的 Prompt 與畫面狀態
+  window._claudeFullPrompt = null;
+  const previewBox = document.getElementById('claudePromptPreview');
+  if (previewBox) previewBox.textContent = '';
+  const prepareMsg = document.getElementById('claudePrepareMsg');
+  const sendArea   = document.getElementById('claudeSendArea');
+  const hint       = document.getElementById('claudeCopiedHint');
+  if (prepareMsg) prepareMsg.style.display = 'flex';
+  if (sendArea)   sendArea.style.display   = 'none';
+  if (hint)       hint.style.display       = 'none';
+  showToast('已清除全部檔案與 Prompt');
 }
 
 function escapeHtml(s) {
