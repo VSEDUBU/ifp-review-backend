@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFP 測試報告審核工具 v4.26</title>
+<title>IFP 測試報告審核工具 v4.27</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -1107,7 +1107,10 @@ header .subtitle {
 
 .cm-prompt-preview { margin-bottom:16px; }
 .cm-prompt-label { font-size:12px; font-weight:600; color:var(--muted); margin-bottom:8px; }
-.cm-prompt-box { background:var(--sidebar); border:1px solid var(--border); border-radius:8px; padding:14px; font-size:12px; font-family:monospace; max-height:200px; overflow-y:auto; white-space:pre-wrap; word-break:break-all; color:var(--text); line-height:1.6; }
+.cm-prompt-box { background:var(--sidebar); border:1px solid var(--border); border-radius:8px; padding:14px; font-size:12px; font-family:monospace; max-height:52px; overflow:hidden; white-space:pre-wrap; word-break:break-all; color:var(--text); line-height:1.6; position:relative; transition:max-height .25s ease; }
+.cm-prompt-box.expanded { max-height:400px; overflow-y:auto; }
+.cm-prompt-toggle { display:inline-flex; align-items:center; gap:4px; margin-top:6px; font-size:12px; color:var(--accent,#2040c0); background:none; border:none; cursor:pointer; padding:2px 0; font-weight:600; }
+.cm-prompt-toggle:hover { text-decoration:underline; }
 
 .cm-send-btn { width:100%; padding:16px; background:var(--accent); color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; transition:background .15s; margin-bottom:12px; }
 .cm-send-btn:hover { background:#0052cc; }
@@ -1242,7 +1245,7 @@ kbd { background:var(--card); border:1px solid var(--border); border-radius:4px;
     <button class="hdr-btn" onclick="openModal('limitPage')">⚠️ AI 審核限制</button>
     <button class="hdr-btn" onclick="showHistory()" title="最近審核記錄">📋 審核記錄</button>
     <button class="hdr-btn" onclick="copyShareUrl()" title="複製工具網址">🔗 分享工具</button>
-    <span class="version-tag">v4.26 · IFP QC</span>
+    <span class="version-tag">v4.27 · IFP QC</span>
   </div>
 </header>
 
@@ -1445,6 +1448,7 @@ kbd { background:var(--card); border:1px solid var(--border); border-radius:4px;
         <div class="cm-prompt-preview">
           <div class="cm-prompt-label">審核 Prompt 預覽（自動複製到剪貼簿）：</div>
           <div class="cm-prompt-box" id="claudePromptPreview"></div>
+          <button class="cm-prompt-toggle" id="claudePromptToggleBtn" onclick="toggleClaudePromptPreview()" style="display:none">🔽 展開查看完整預覽</button>
         </div>
         <button class="cm-send-btn" onclick="sendToClaudeAI()">
           🚀 複製 Prompt 並開啟 Claude.ai
@@ -2900,6 +2904,23 @@ function switchMode(mode) {
   }
 }
 
+function toggleClaudePromptPreview() {
+  const box = document.getElementById('claudePromptPreview');
+  const btn = document.getElementById('claudePromptToggleBtn');
+  if (!box || !btn) return;
+  const full = window._claudeFullPromptPreviewText || '';
+  const isExpanded = box.classList.contains('expanded');
+  if (isExpanded) {
+    box.classList.remove('expanded');
+    box.textContent = full.slice(0, 80) + (full.length > 80 ? '...' : '');
+    btn.textContent = '🔽 展開查看完整預覽';
+  } else {
+    box.classList.add('expanded');
+    box.textContent = full;
+    btn.textContent = '🔼 收合預覽';
+  }
+}
+
 function updateClaudePanel() {
   const prepareMsg = document.getElementById('claudePrepareMsg');
   const sendArea   = document.getElementById('claudeSendArea');
@@ -2933,9 +2954,16 @@ function updateClaudePanel() {
   const previewPrompt = p.system + '\n\n---\n\n' + p.user + attachmentNote;
   const fullClaudePrompt = previewPrompt + (p.htmlInstruction || '');
 
-  const previewLen = 1500;
+  const previewLen = 80;
   if (previewBox) previewBox.textContent = previewPrompt.slice(0, previewLen) +
-    (previewPrompt.length > previewLen ? '\n\n...（共 ' + previewPrompt.length + ' 字元）' : '');
+    (previewPrompt.length > previewLen ? '...' : '');
+  window._claudeFullPromptPreviewText = previewPrompt; // 供展開時使用
+  const toggleBtn = document.getElementById('claudePromptToggleBtn');
+  if (toggleBtn) {
+    toggleBtn.style.display = previewPrompt.length > previewLen ? 'inline-flex' : 'none';
+    toggleBtn.textContent = '🔽 展開查看完整預覽';
+    if (previewBox) previewBox.classList.remove('expanded');
+  }
   window._claudeFullPrompt = fullClaudePrompt;
 
   if (prepareMsg) prepareMsg.style.display = 'none';
@@ -3614,8 +3642,11 @@ function clearAllClaudeFiles() {
 
   // 一併清除已產生的 Prompt 與畫面狀態
   window._claudeFullPrompt = null;
+  window._claudeFullPromptPreviewText = null;
   const previewBox = document.getElementById('claudePromptPreview');
-  if (previewBox) previewBox.textContent = '';
+  if (previewBox) { previewBox.textContent = ''; previewBox.classList.remove('expanded'); }
+  const toggleBtn = document.getElementById('claudePromptToggleBtn');
+  if (toggleBtn) toggleBtn.style.display = 'none';
   const prepareMsg = document.getElementById('claudePrepareMsg');
   const sendArea   = document.getElementById('claudeSendArea');
   const hint       = document.getElementById('claudeCopiedHint');
