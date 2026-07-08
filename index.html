@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFP 測試報告審核工具 v4.24</title>
+<title>IFP 測試報告審核工具 v4.26</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -928,6 +928,16 @@ header .subtitle {
 
 /* ── AI 限制說明頁面樣式 ── */
 .limit-positioning { display:flex; gap:20px; align-items:flex-start; background:linear-gradient(135deg,#f0f4ff,#e8edff); border:1px solid #c0d0ff; border-radius:14px; padding:24px; margin-bottom:32px; }
+.eng-required-box { background:linear-gradient(135deg,#fff0f0,#ffe4e4); border:2px solid #dc2626; border-radius:14px; padding:24px; margin-bottom:32px; }
+.eng-required-title { font-size:18px; font-weight:800; color:#991b1b; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+.eng-required-subtitle { font-size:13px; color:#7f1d1d; margin-bottom:16px; }
+.eng-required-group-title { font-size:14.5px; font-weight:700; color:#991b1b; margin:16px 0 8px; padding-bottom:4px; border-bottom:2px solid #fca5a5; }
+.eng-required-list { list-style:none; padding:0; margin:0 0 4px; }
+.eng-required-list li { padding:9px 0 9px 30px; position:relative; border-bottom:1px dashed #fecaca; font-size:14px; line-height:1.6; color:#450a0a; }
+.eng-required-list li:last-child { border-bottom:none; }
+.eng-required-list li::before { content:"⚠️"; position:absolute; left:0; top:8px; font-size:13px; }
+.eng-required-list li strong { color:#b91c1c; }
+.eng-required-footer { margin-top:14px; padding:12px 16px; background:#991b1b; color:#fff; border-radius:8px; font-weight:700; font-size:14px; text-align:center; }
 .pos-icon { font-size:36px; flex-shrink:0; }
 .pos-title { font-size:17px; font-weight:700; color:#2040c0; margin-bottom:8px; }
 .pos-desc { font-size:13px; line-height:1.8; color:var(--text); }
@@ -1232,7 +1242,7 @@ kbd { background:var(--card); border:1px solid var(--border); border-radius:4px;
     <button class="hdr-btn" onclick="openModal('limitPage')">⚠️ AI 審核限制</button>
     <button class="hdr-btn" onclick="showHistory()" title="最近審核記錄">📋 審核記錄</button>
     <button class="hdr-btn" onclick="copyShareUrl()" title="複製工具網址">🔗 分享工具</button>
-    <span class="version-tag">v4.24 · IFP QC</span>
+    <span class="version-tag">v4.26 · IFP QC</span>
   </div>
 </header>
 
@@ -3712,7 +3722,7 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>❌ 無</td>
               <td>⚡⚡⚡ 快</td>
-              <td>⭐⭐⭐⭐⭐ 最強</td>
+              
               <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>✅ 需要</td>
             </tr>
@@ -3731,7 +3741,7 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>❌ 無</td>
               <td>⚡⚡ 中等</td>
-              <td>⭐⭐⭐⭐⭐ 最強</td>
+              
               <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>✅ 需要（價格為Opus2倍，本工具用途不建議）</td>
             </tr>
@@ -3742,7 +3752,7 @@ function escapeHtml(s) {
               <td>$0.10 / $0.40</td>
               <td>1M tokens</td>
               <td>⚠️ 已於 2026/6/1 關閉</td>
-              <td>—</td>
+              
               <td>—</td>
               <td>—</td>
               <td>—</td>
@@ -3753,7 +3763,7 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>✅ 有</td>
               <td>⚡⚡⚡⚡⚡ 最快</td>
-              <td>⭐⭐⭐ 普通</td>
+              
               <td>⭐⭐⭐ 普通</td>
               <td>✅ 需要（付費）</td>
             </tr>
@@ -3799,7 +3809,7 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>✅ 有（限制中）</td>
               <td>⚡⚡⚡⚡ 極快</td>
-              <td>⭐⭐⭐⭐ 良好</td>
+              
               <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>✅ 需要（付費）</td>
             </tr>
@@ -3820,7 +3830,7 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>❌ 無（$5 試用額度）</td>
               <td>⚡⚡⚡⚡ 極快</td>
-              <td>⭐⭐⭐ 普通</td>
+              
               <td>⭐⭐⭐ 普通</td>
               <td>✅ 需要</td>
             </tr>
@@ -3875,7 +3885,7 @@ function escapeHtml(s) {
               <td>1M tokens</td>
               <td>❌ 無</td>
               <td>⚡⚡⚡ 快</td>
-              <td>⭐⭐⭐⭐ 良好</td>
+              
               <td>⭐⭐⭐⭐⭐ 最強</td>
               <td>✅ 需要</td>
             </tr>
@@ -3905,7 +3915,7 @@ function escapeHtml(s) {
               <td>128K tokens</td>
               <td>—</td>
               <td>⚡⚡⚡⚡⚡ 最快（500+ TPS）</td>
-              <td>⭐⭐⭐ 普通</td>
+              
               <td>⭐⭐⭐ 普通</td>
               <td>✅ 需要</td>
             </tr>
@@ -3917,7 +3927,7 @@ function escapeHtml(s) {
               <td>131K tokens</td>
               <td>✅ 有（5 RPM／30K TPM／<strong>100萬 TPD</strong>）</td>
               <td>⚡⚡⚡⚡⚡ 最快（1000+ TPS）</td>
-              <td>⭐⭐⭐ 普通</td>
+              
               <td>⭐⭐⭐ 普通</td>
               <td>❌ 不需要</td>
             </tr>
@@ -4387,6 +4397,33 @@ function escapeHtml(s) {
           AI 的判定結論是「建議參考」，最終判定責任仍在工程師。
         </div>
       </div>
+    </div>
+
+    <!-- AI不能取代工程師判斷 -->
+    <div class="eng-required-box">
+      <div class="eng-required-title">🚫 AI 無法取代具備電子/電路/電氣/機構背景的專業工程師判斷</div>
+      <div class="eng-required-subtitle">這不是客套話，是這個工具設計上的硬性前提——以下具體說明「為什麼」，請務必看完再使用審核結果。</div>
+
+      <div class="eng-required-group-title">A. 為什麼AI無法取代工程師對「整份報告」的判斷</div>
+      <ul class="eng-required-list">
+        <li>AI只能比對「數字有沒有超過限值」，<strong>不理解數值背後的物理意義</strong>——例如T3時序為負值代表時序順序反了、可能造成關機瞬間面板異常，這種工程意義的推論AI可以參考但不能保證正確，需要工程師憑經驗確認</li>
+        <li>AI不知道<strong>產品實際用途與客戶合約規格</strong>——報告寫PASS不代表符合特定客戶的驗收標準，這些資訊不在測試報告裡，只有工程師/業務知道</li>
+        <li>AI無法質疑<strong>判定標準本身合不合理</strong>（例如同一份報告裡訊號線判C級但電源線判B級這種落差），只能標註「請人工複核」，最終要不要接受這個標準是工程判斷，不是數據比對</li>
+        <li>AI不具備<strong>公司內部BOM/AVL/供應商變更紀錄</strong>的存取權限，遇到料號差異只能標記「可能為正常工程慣例」，實際是否真的核准過，只有工程師查得到</li>
+        <li>對波形圖、眼圖等<strong>圖像化數據，AI基本上讀不到</strong>，只能依賴報告文字標注的PASS/FAIL字樣，圖像本身是否真的合格，必須工程師肉眼複查</li>
+        <li>AI給的是<strong>統計上「常見情況」的推論</strong>，你的產品可能剛好是那個「不常見」的例外，AI沒有能力意識到自己正在處理一個例外情況</li>
+      </ul>
+
+      <div class="eng-required-group-title">B. 為什麼判定「不合格（FAIL/WARN）」的真正原因，需要工程師才能確定</div>
+      <ul class="eng-required-list">
+        <li>AI能標出「這裡FAIL」，但<strong>無法判斷根本原因</strong>是元件設計、製程公差、測試治具問題、還是包裝/運輸造成——例如「跌落後陰陽屏」可能是面板固定結構問題，也可能是背光模組移位，這需要拆機或工程分析才能確定，不是看報告文字能推論出來的</li>
+        <li><strong>多筆數據之間的因果關係</strong>（例如溫升超標是否跟PCB佈線、散熱設計、還是電流分配有關）需要電路設計背景才能建立假設並驗證，AI只能告訴你「哪個數字超標」，不能告訴你「為什麼會超標」</li>
+        <li>安規（IEC 62368-1）、能效（EU 2019/2021）等<strong>有法規要求的測試類型，最終簽署責任依法規慣例必須由具備相關資質的工程師承擔</strong>，這不是工具能力問題，是法規與職業責任的要求，AI的判定在法律/合規意義上不具備任何效力</li>
+        <li><strong>條件式、豁免式的規格條文</strong>（如「T6≥100ms，但若T5<500ms則豁免」）AI容易忽略條件本身，誤判合格與否，這類細節需要工程師對照原始規格書逐條確認</li>
+        <li>不合格判定往往牽涉<strong>要不要放行、要不要重新設計、成本與時程的取捨</strong>，這些是工程管理決策，AI沒有能力也沒有立場替你做這個決定，只能提供「哪裡有問題」的初步線索</li>
+      </ul>
+
+      <div class="eng-required-footer">💡 簡單說：AI幫你把20分鐘的報告翻閱壓縮到2分鐘找出重點，但「這個FAIL到底代表什麼、該怎麼處理」，永遠需要工程師來判斷——這是能力邊界，不是暫時性的技術限制，未來版本也不會改變這個定位。</div>
     </div>
 
     <!-- 限制一覽 -->
