@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFP 測試報告審核工具 v4.34</title>
+<title>IFP 測試報告審核工具 v4.35</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -1244,10 +1244,11 @@ kbd { background:var(--card); border:1px solid var(--border); border-radius:4px;
       <button class="mode-sw-btn" id="modeClaudeBtn" onclick="switchMode('claude')">🤖 Claude.ai 模式</button>
     </div>
     <button class="hdr-btn" onclick="openModal('apiComparePage')">💰 API 方案比較</button>
+    <button class="hdr-btn" onclick="openModal('multiStepPage')">🪜 多步驟深度批次分析</button>
     <button class="hdr-btn" onclick="openModal('limitPage')">⚠️ AI 審核限制</button>
     <button class="hdr-btn" onclick="showHistory()" title="最近審核記錄">📋 審核記錄</button>
     <button class="hdr-btn" onclick="copyShareUrl()" title="複製工具網址">🔗 分享工具</button>
-    <span class="version-tag">v4.34 · IFP QC</span>
+    <span class="version-tag">v4.35 · IFP QC</span>
   </div>
 </header>
 
@@ -3093,6 +3094,7 @@ function copyResult() {
 function openModal(id) {
   const el = document.getElementById(id);
   if (!el) return;
+  if (id === 'multiStepPage' && typeof renderMultiStepCards === 'function') renderMultiStepCards();
   el.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
@@ -3895,6 +3897,116 @@ function renderClaudeFileList() {
   listEl.innerHTML = summary + rows;
 }
 
+// ══ 多步驟深度批次分析 ══════════════════════════════════════
+let _multiStepResults = {}; // { fileIndex: 已貼入的分析結果文字 }
+
+function renderMultiStepCards() {
+  const notice = document.getElementById('multiStepFileNotice');
+  const container = document.getElementById('multiStepCards');
+  const finalSection = document.getElementById('multiStepFinalSection');
+  if (!container) return;
+
+  if (!claudeFilesList.length) {
+    notice.innerHTML = '⚠️ 尚未上傳任何檔案，請先到「🤖 Claude.ai 模式」分頁上傳這批要審核的報告，再回來這裡。';
+    container.innerHTML = '';
+    finalSection.style.display = 'none';
+    return;
+  }
+
+  notice.innerHTML = `已偵測到 <strong>${claudeFilesList.length}</strong> 份檔案，以下為每份的獨立分析步驟：`;
+
+  container.innerHTML = claudeFilesList.map((entry, idx) => {
+    const effectiveType = entry.userType || entry.guessedType || 'AUTO';
+    const typeLabel = TYPE_LABELS[effectiveType] || effectiveType;
+    const done = !!_multiStepResults[idx];
+    return `
+      <div class="ft-card" style="margin-bottom:14px;text-align:left;padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div><strong>步驟 ${idx+1}／${claudeFilesList.length}</strong>　${escapeHtml(entry.name)}<br>
+          <span style="font-size:12px;color:#666">判斷類型：${typeLabel}</span></div>
+          <span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${done?'#dcfce7':'#f3f4f6'};color:${done?'#16a34a':'#999'}">${done?'✅ 已完成':'⬜ 未完成'}</span>
+        </div>
+        <button class="cm-send-btn" style="font-size:13px;padding:8px 14px" onclick="copyStepPrompt(${idx})">🚀 複製此份Prompt並開啟 Claude.ai</button>
+        <div style="margin-top:8px">
+          <div style="font-size:12px;color:#666;margin-bottom:4px">把Claude.ai針對這份報告回覆的完整分析結果，貼在下方：</div>
+          <textarea id="stepResult_${idx}" rows="3" style="width:100%;font-size:11px;font-family:monospace;resize:vertical" placeholder="貼上Claude.ai對這份報告的完整分析結果..." oninput="onStepResultInput(${idx})">${_multiStepResults[idx] ? escapeHtml(_multiStepResults[idx]) : ''}</textarea>
+        </div>
+      </div>`;
+  }).join('');
+
+  finalSection.style.display = claudeFilesList.length ? 'block' : 'none';
+}
+
+function onStepResultInput(idx) {
+  const ta = document.getElementById('stepResult_' + idx);
+  _multiStepResults[idx] = ta.value.trim();
+  renderMultiStepCards(); // 更新完成狀態徽章
+  // 保留焦點與捲動位置的簡易處理：重新聚焦剛編輯的欄位
+  const newTa = document.getElementById('stepResult_' + idx);
+  if (newTa) { newTa.focus(); newTa.setSelectionRange(newTa.value.length, newTa.value.length); }
+}
+
+function copyStepPrompt(idx) {
+  const entry = claudeFilesList[idx];
+  if (!entry) return;
+  const effectiveType = entry.userType || entry.guessedType || 'AUTO';
+  const p = buildPrompt([{ name: entry.name, type: effectiveType }]);
+  // 單份分析：只要結構化文字分析，不要Excel輸出指令（Excel留到最後彙整步驟才產生）
+  const fullPrompt = p.system + '\n\n---\n\n' + p.user +
+    '\n[附件：' + entry.name + '（請在 Claude.ai 上傳此檔案）]\n\n' +
+    '【本次任務說明】這是多步驟深度批次分析的其中一步，你只需要專注分析這「一份」報告，依上方系統指令逐項完整審核，輸出結構化的文字分析結果（不需要產生Excel檔案，這步驟只需要文字結果，Excel會在後續彙整步驟另外產生）。請盡可能詳細、逐項展開，不要用總結句帶過任何測項。';
+
+  copyTextAndOpenClaude(fullPrompt, () => {
+    showToast('✅ 第' + (idx+1) + '份的Prompt已複製，Claude.ai已開啟');
+  });
+}
+
+function copyConsolidationPrompt() {
+  if (!claudeFilesList.length) { showToast('請先上傳檔案', 'warn'); return; }
+  const missing = claudeFilesList.map((e,i) => !_multiStepResults[i] ? (i+1) : null).filter(x => x);
+  if (missing.length) {
+    showToast('⚠️ 第 ' + missing.join('、') + ' 份的分析結果尚未貼入，請先完成再產生彙整Prompt', 'warn', 6000);
+    return;
+  }
+
+  const p = buildPrompt(claudeFilesList.map((e,i) => ({ name: e.name, type: e.userType || e.guessedType || 'AUTO' })));
+  const combinedResults = claudeFilesList.map((e, i) =>
+    `\n\n===== 報告 ${i+1}：${e.name} 的分析結果 =====\n${_multiStepResults[i]}`
+  ).join('');
+
+  const consolidationPrompt = `你是一位資深硬體測試工程師，負責把多份「已經個別完成的測試報告分析結果」彙整成一份正式的批次審核Excel報告。
+
+以下是 ${claudeFilesList.length} 份報告各自的完整分析結果（每一份都已經逐項審核過，你不需要重新分析內容，只需要彙整、比對、格式化）：
+${combinedResults}
+
+【彙整任務】
+1. 逐一檢視上方每份分析結果，摘出各測項的判定（PASS/WARN/FAIL/CONTRADICTION），不可遺漏任何一份裡的任何一項
+2. 進行跨報告比對：檢查各報告之間的主機板/平台型號、韌體版本、測試日期是否一致，找出所有需要留意的差異，不要只找到部分就停止，要逐一比對完所有報告的對應欄位
+3. 依照以下Excel輸出格式規範產生最終檔案（下方規範原本是給「讀取PDF後分析」的情境用，這裡改成「彙整上方已完成的分析結果」，其餘格式規則完全比照辦理）：
+
+${p.htmlInstruction}`;
+
+  copyTextAndOpenClaude(consolidationPrompt, () => {
+    const hint = document.getElementById('multiStepFinalHint');
+    if (hint) hint.style.display = 'block';
+    showToast('✅ 彙整Prompt已複製，Claude.ai已開啟！');
+  });
+}
+
+// 共用的「複製到剪貼簿+開啟Claude.ai」邏輯（修正版：先複製再開視窗，避免焦點問題）
+function copyTextAndOpenClaude(text, onSuccess) {
+  function afterCopy() {
+    const claudeWin = window.open('https://claude.ai/new', '_blank');
+    if (!claudeWin) showToast('⚠️ 瀏覽器封鎖彈出視窗，請手動開啟 claude.ai，剪貼簿已備妥可直接貼上', 'warn', 6000);
+    if (onSuccess) onSuccess();
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(afterCopy).catch(() => { fallbackCopyText(text); afterCopy(); });
+  } else {
+    fallbackCopyText(text); afterCopy();
+  }
+}
+
 function clearAllClaudeFiles() {
   claudeFilesList = [];
   claudeSelectedFile = null;
@@ -4666,6 +4778,56 @@ function escapeHtml(s) {
   </div><!-- /modal-box -->
 </div><!-- /apiComparePage -->
 
+<!-- 多步驟深度批次分析 -->
+<div id="multiStepPage" class="modal-overlay" style="display:none" onclick="closeModalOnBg(event,'multiStepPage')">
+  <div class="modal-box compare-box" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('multiStepPage')">✕</button>
+    <div class="compare-content">
+      <div class="compare-header">
+        <h1 class="compare-title">🪜 多步驟深度批次分析</h1>
+        <p class="compare-subtitle">大批次報告時，避免「份數多」稀釋「每份都要深入」的正確做法</p>
+      </div>
+
+      <div class="eng-required-box" style="border-color:#2040c0;background:linear-gradient(135deg,#f0f4ff,#e8edff)">
+        <div class="eng-required-title" style="color:#1a3ccc">💡 為什麼要拆成多步驟，而不是一次貼上全部報告</div>
+        <div class="eng-required-subtitle" style="color:#1a3ccc">一次把幾十份報告塞進同一個Prompt，AI會把注意力分散到每一份報告上，導致逐項深度下降（實測案例：EMI報告審核項目從12項掉到2項）。這不是模型不夠強，是任何AI在單次輸出裡兼顧「份數多」跟「每份都深挖」都有極限。拆成「一份報告一次專注分析」+「最後彙整」，可以兩者兼顧，代價是操作上要跑多輪，不是一次貼上就結束。</div>
+      </div>
+
+      <div class="compare-section">
+        <h2 class="compare-section-title">📋 使用流程</h2>
+        <div class="recommend-steps">
+          <div class="rec-step">
+            <div class="rec-num">Step 1</div>
+            <div class="rec-content"><strong>上傳全部報告</strong><br>回到「Claude.ai 模式」分頁上傳這批要審核的所有報告（跟平常批次上傳用同一個檔案清單）</div>
+          </div>
+          <div class="rec-step">
+            <div class="rec-num">Step 2</div>
+            <div class="rec-content"><strong>回到這一頁，逐份分析</strong><br>下方會依上傳的檔案自動列出對應的步驟卡片，每一步只針對「一份」報告，複製該步驟的Prompt、開啟新的Claude.ai對話貼上送出，把Claude回覆的完整分析結果複製下來，貼到步驟卡片下方的文字框存好</div>
+          </div>
+          <div class="rec-step">
+            <div class="rec-num">Step 3</div>
+            <div class="rec-content"><strong>最後一步：彙整</strong><br>全部單份分析都做完、結果都貼進對應文字框後，按「產生彙整Prompt」，複製後開一個全新的Claude.ai對話貼上送出，這一步會把所有單份結果組合成最終的Excel審核報告</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="compare-section">
+        <h2 class="compare-section-title">📂 分析步驟</h2>
+        <div id="multiStepFileNotice" style="font-size:13px;color:#666;margin-bottom:12px"></div>
+        <div id="multiStepCards"></div>
+      </div>
+
+      <div class="compare-section" id="multiStepFinalSection" style="display:none">
+        <h2 class="compare-section-title">🏁 最終彙整</h2>
+        <p class="compare-note">確認上方每一份報告的分析結果都已貼入對應文字框後，點下方按鈕產生彙整Prompt。</p>
+        <button class="cm-send-btn" onclick="copyConsolidationPrompt()" style="margin-bottom:10px">📊 產生並複製彙整Prompt並開啟 Claude.ai</button>
+        <div id="multiStepFinalHint" style="display:none;font-size:12px;color:#16a34a;margin-top:6px">✅ 彙整Prompt已複製，Claude.ai已開啟，貼上送出即可產出最終Excel報告</div>
+      </div>
+    </div>
+  </div>
+</div><!-- /multiStepPage -->
+
+
 <!-- ════════════════════════════════════════════════════════
      AI 審核限制說明頁面
 ═════════════════════════════════════════════════════════ -->
@@ -4718,6 +4880,21 @@ function escapeHtml(s) {
       </ul>
 
       <div class="eng-required-footer">💡 簡單說：AI幫你把20分鐘的報告翻閱壓縮到2分鐘找出重點，但「這個FAIL到底代表什麼、該怎麼處理」，永遠需要工程師來判斷——這是能力邊界，不是暫時性的技術限制，未來版本也不會改變這個定位。</div>
+    </div>
+
+    <!-- 批次份數與深度分析的取捨 -->
+    <div class="eng-required-box">
+      <div class="eng-required-title">🚫 一次分析「幾十份報告」跟「每份都逐項深挖」無法同時做到滿分</div>
+      <div class="eng-required-subtitle">這是這個工具實測發現的真實限制，不是猜測——有具體案例佐證。</div>
+      <ul class="eng-required-list">
+        <li><strong>實測案例</strong>：同一批7份報告，分開測試時EMI報告能審核出12個項目，但塞進同一次批次分析（7份一起）後，同一份EMI報告只審出2個項目——審核深度掉了超過80%</li>
+        <li><strong>原因</strong>：任何AI模型（包括最強的模型）在單次輸出裡，指令跟資料量塞得越多，中段的細節指令被確實執行的機率就越低，這是已知的通用現象（業界稱為「lost in the middle」），不是特定模型比較弱才會發生</li>
+        <li><strong>不是「規則沒寫清楚」的問題</strong>：這個工具的typeSpecificRules規則已經明確要求逐項計算裕量、跨報告比對、料號分級判斷——問題不在規則寫得夠不夠明確，而是規則+報告數量一起塞進同一次輸出時，AI會不自覺地把每份報告的處理壓縮變淺，藉此在有限輸出裡塞進所有報告</li>
+        <li><strong>批次份數越多、平均每份的審核深度風險越高</strong>：1~2份報告通常不太會有明顯稀釋，但5份以上開始有感，10幾份以上風險明顯提高</li>
+      </ul>
+      <div class="eng-required-footer">
+        ✅ 解法：報告數量多時，請改用頂部「🪜 多步驟深度批次分析」分頁——把「一次分析一份」跟「最後彙整」拆成兩階段，兩邊都不用打折扣，代價是操作上要跑多輪對話，不是一次貼上就結束。
+      </div>
     </div>
 
     <!-- 限制一覽 -->
