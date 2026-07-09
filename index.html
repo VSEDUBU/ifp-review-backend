@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFP 測試報告審核工具 v4.35</title>
+<title>IFP 測試報告審核工具 v4.36</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -1248,7 +1248,7 @@ kbd { background:var(--card); border:1px solid var(--border); border-radius:4px;
     <button class="hdr-btn" onclick="openModal('limitPage')">⚠️ AI 審核限制</button>
     <button class="hdr-btn" onclick="showHistory()" title="最近審核記錄">📋 審核記錄</button>
     <button class="hdr-btn" onclick="copyShareUrl()" title="複製工具網址">🔗 分享工具</button>
-    <span class="version-tag">v4.35 · IFP QC</span>
+    <span class="version-tag">v4.36 · IFP QC</span>
   </div>
 </header>
 
@@ -3856,6 +3856,19 @@ function setClaudeFileType(idx, val) {
   updateClaudePanel();
 }
 
+// 依目前規則長度動態估算「安全批次上限」——這是根據有限實測證據推算的粗估值，
+// 不是嚴謹對照實驗算出來的精確數字，會隨規則增減自動調整，但仍只能當參考
+function estimateSafeBatchSize() {
+  const p = buildPrompt(); // 取單一類型（非批次）情境下的規則長度作為基準
+  const ruleLen = p.system.length;
+  // 粗估邏輯：規則越長，能安全容納的份數越少。基準值3份（對應規則長度較短時的實測情況，
+  // 7份在較短規則下已出現明顯稀釋，故保守取3為起點），規則長度超過門檻就往下調
+  let safe = 3;
+  if (ruleLen > 8000)  safe = 2;
+  if (ruleLen > 12000) safe = 1;
+  return { safe, ruleLen };
+}
+
 function renderClaudeFileList() {
   const listEl = document.getElementById('claudeFileList');
   if (!listEl) return;
@@ -3894,7 +3907,19 @@ function renderClaudeFileList() {
     '<span>已選取 ' + claudeFilesList.length + ' 份檔案' + (claudeFilesList.length > 1 ? '，將以批次比對模式分析（每份報告會依判斷的類型分別套用對應規則）' : '') + '</span>' +
     '<button class="file-clear" style="position:static" onclick="clearAllClaudeFiles()" title="清除全部檔案與已產生的Prompt">🗑 清除全部</button>' +
     '</div>';
-  listEl.innerHTML = summary + rows;
+
+  let warnHtml = '';
+  if (claudeFilesList.length > 1) {
+    const { safe, ruleLen } = estimateSafeBatchSize();
+    if (claudeFilesList.length > safe) {
+      warnHtml = '<div style="font-size:12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:8px 10px;margin-bottom:6px;color:#7a5c00">' +
+        '⚠️ 目前規則長度約 ' + ruleLen.toLocaleString() + ' 字元，粗估安全批次上限約 <strong>' + safe + ' 份</strong>（此為依有限實測推算的粗估值，非嚴謹數字）。' +
+        '您目前選了 <strong>' + claudeFilesList.length + ' 份</strong>，超過建議上限，一次性批次分析可能出現審核深度被稀釋的風險（已知案例：7份報告合併分析時，EMI審核項目從12項掉到2項）。' +
+        '建議改用上方「🪜 多步驟深度批次分析」分頁逐份處理。</div>';
+    }
+  }
+
+  listEl.innerHTML = summary + warnHtml + rows;
 }
 
 // ══ 多步驟深度批次分析 ══════════════════════════════════════
@@ -3951,14 +3976,20 @@ function copyStepPrompt(idx) {
   if (!entry) return;
   const effectiveType = entry.userType || entry.guessedType || 'AUTO';
   const p = buildPrompt([{ name: entry.name, type: effectiveType }]);
+  const isFirst = (idx === 0);
   // 單份分析：只要結構化文字分析，不要Excel輸出指令（Excel留到最後彙整步驟才產生）
+  const continuityNote = isFirst
+    ? ''
+    : '\n\n【重要：這是同一輪多步驟分析的第 ' + (idx+1) + ' 則訊息】請直接在剛剛那個Claude.ai對話串裡，貼上這則新訊息並送出（不需要開新對話），這樣Claude才能維持在同一輪分析工作裡，不要另外開新的對話視窗。';
   const fullPrompt = p.system + '\n\n---\n\n' + p.user +
     '\n[附件：' + entry.name + '（請在 Claude.ai 上傳此檔案）]\n\n' +
-    '【本次任務說明】這是多步驟深度批次分析的其中一步，你只需要專注分析這「一份」報告，依上方系統指令逐項完整審核，輸出結構化的文字分析結果（不需要產生Excel檔案，這步驟只需要文字結果，Excel會在後續彙整步驟另外產生）。請盡可能詳細、逐項展開，不要用總結句帶過任何測項。';
+    '【本次任務說明】這是多步驟深度批次分析的其中一步，你只需要專注分析這「一份」報告，依上方系統指令逐項完整審核，輸出結構化的文字分析結果（不需要產生Excel檔案，這步驟只需要文字結果，Excel會在後續彙整步驟另外產生）。請盡可能詳細、逐項展開，不要用總結句帶過任何測項。' + continuityNote;
 
   copyTextAndOpenClaude(fullPrompt, () => {
-    showToast('✅ 第' + (idx+1) + '份的Prompt已複製，Claude.ai已開啟');
-  });
+    showToast(isFirst
+      ? '✅ 第1份的Prompt已複製，Claude.ai已開啟，貼上送出即可'
+      : '✅ 第' + (idx+1) + '份的Prompt已複製，請回到「同一個」Claude.ai對話貼上送出（不要開新對話）');
+  }, isFirst);
 }
 
 function copyConsolidationPrompt() {
@@ -3976,6 +4007,8 @@ function copyConsolidationPrompt() {
 
   const consolidationPrompt = `你是一位資深硬體測試工程師，負責把多份「已經個別完成的測試報告分析結果」彙整成一份正式的批次審核Excel報告。
 
+【重要：這是同一輪多步驟分析的最後一則訊息】請直接在剛剛分析這些報告的同一個Claude.ai對話串裡貼上這則訊息並送出，不要開新對話——因為前面幾步已經在這個對話裡逐份分析過，這一步只是要求你彙整前面已經做好的結果，不需要重新讀取或重新分析任何報告內容。
+
 以下是 ${claudeFilesList.length} 份報告各自的完整分析結果（每一份都已經逐項審核過，你不需要重新分析內容，只需要彙整、比對、格式化）：
 ${combinedResults}
 
@@ -3989,15 +4022,21 @@ ${p.htmlInstruction}`;
   copyTextAndOpenClaude(consolidationPrompt, () => {
     const hint = document.getElementById('multiStepFinalHint');
     if (hint) hint.style.display = 'block';
-    showToast('✅ 彙整Prompt已複製，Claude.ai已開啟！');
-  });
+    showToast('✅ 彙整Prompt已複製，請回到「同一個」Claude.ai對話貼上送出（不要開新對話）', 'success', 5000);
+  }, false);
 }
 
-// 共用的「複製到剪貼簿+開啟Claude.ai」邏輯（修正版：先複製再開視窗，避免焦點問題）
-function copyTextAndOpenClaude(text, onSuccess) {
+// 共用的「複製到剪貼簿+開啟Claude.ai」邏輯
+// isFirstMessage=true：這是這輪多步驟分析的第一則訊息，開新視窗
+// isFirstMessage=false：沿用同一個Claude.ai對話視窗，只複製，不開新視窗
+let _multiStepClaudeWinOpened = false;
+function copyTextAndOpenClaude(text, onSuccess, forceNewWindow) {
   function afterCopy() {
-    const claudeWin = window.open('https://claude.ai/new', '_blank');
-    if (!claudeWin) showToast('⚠️ 瀏覽器封鎖彈出視窗，請手動開啟 claude.ai，剪貼簿已備妥可直接貼上', 'warn', 6000);
+    if (forceNewWindow || !_multiStepClaudeWinOpened) {
+      const claudeWin = window.open('https://claude.ai/new', '_blank');
+      if (!claudeWin) showToast('⚠️ 瀏覽器封鎖彈出視窗，請手動開啟 claude.ai，剪貼簿已備妥可直接貼上', 'warn', 6000);
+      _multiStepClaudeWinOpened = true;
+    }
     if (onSuccess) onSuccess();
   }
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -4008,6 +4047,8 @@ function copyTextAndOpenClaude(text, onSuccess) {
 }
 
 function clearAllClaudeFiles() {
+  _multiStepClaudeWinOpened = false;
+  _multiStepResults = {};
   claudeFilesList = [];
   claudeSelectedFile = null;
   claudeFileBase64 = null;
@@ -4802,11 +4843,11 @@ function escapeHtml(s) {
           </div>
           <div class="rec-step">
             <div class="rec-num">Step 2</div>
-            <div class="rec-content"><strong>回到這一頁，逐份分析</strong><br>下方會依上傳的檔案自動列出對應的步驟卡片，每一步只針對「一份」報告，複製該步驟的Prompt、開啟新的Claude.ai對話貼上送出，把Claude回覆的完整分析結果複製下來，貼到步驟卡片下方的文字框存好</div>
+            <div class="rec-content"><strong>回到這一頁，依序逐份分析（同一個Claude.ai對話視窗）</strong><br>下方會依上傳的檔案自動列出對應的步驟卡片。第1步會開啟一個新的Claude.ai對話——之後每一步都<strong>不會再開新視窗</strong>，只複製該步驟的Prompt，你回到「剛剛那個同一個對話」貼上送出即可，讓Claude在同一輪對話裡連續處理完所有報告，這樣才能維持每份報告都被充分分析。把Claude每一步回覆的完整分析結果複製下來，貼到對應步驟卡片下方的文字框存好</div>
           </div>
           <div class="rec-step">
             <div class="rec-num">Step 3</div>
-            <div class="rec-content"><strong>最後一步：彙整</strong><br>全部單份分析都做完、結果都貼進對應文字框後，按「產生彙整Prompt」，複製後開一個全新的Claude.ai對話貼上送出，這一步會把所有單份結果組合成最終的Excel審核報告</div>
+            <div class="rec-content"><strong>最後一步：彙整（同一個對話視窗）</strong><br>全部單份分析都做完、結果都貼進對應文字框後，按「產生彙整Prompt」，一樣回到「同一個」Claude.ai對話貼上送出，這一步會把所有單份結果組合成最終的Excel審核報告</div>
           </div>
         </div>
       </div>
