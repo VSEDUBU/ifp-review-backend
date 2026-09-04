@@ -1,4 +1,43 @@
-fastapi
-uvicorn
-httpx
-pydantic
+# IFP 測試報告自動審核工具 - Python 依賴
+
+# Web Framework
+Flask==2.3.3
+Flask-CORS==4.0.0
+python-dotenv==1.0.0
+
+# PDF Processing
+PyPDF2==3.0.1
+pdfplumber==0.9.0
+python-magic==0.4.27
+
+# API Integration
+requests==2.31.0
+openai==0.27.8  # For OpenRouter compatibility
+
+# Data Processing
+pandas==2.0.3
+openpyxl==3.1.2
+reportlab==4.0.4
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+tenacity==8.2.3
+
+# Server
+gunicorn==21.2.0
+
+# Testing
+pytest==7.4.0
+pytest-cov==4.1.0
+
+# Development
+black==23.7.0
+flake8==6.0.0
+pylint==2.17.5
+
+# Logging
+python-logging-loki==0.3.2
+
+# Monitoring (Optional)
+sentry-sdk==1.30.0
