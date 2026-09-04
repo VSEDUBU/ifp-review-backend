@@ -34,9 +34,12 @@ PROVIDERS = [
         "key_env": "CEREBRAS",
     },
     {
-        "name": "groq/llama-3.3-70b",
+        # 原本是 groq/llama-3.3-70b，該模型已於 2026/8/16 由 Groq 官方正式停用
+        # (llama-3.3-70b-versatile 與 llama-3.1-8b-instant 一併停用)
+        # 改用 Groq 官方建議的替代模型 openai/gpt-oss-120b
+        "name": "groq/gpt-oss-120b",
         "url": "https://api.groq.com/openai/v1/chat/completions",
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-120b",
         "key_env": "GROQ",
     },
 ]
