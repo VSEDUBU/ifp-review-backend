@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFP 測試報告審核工具 v4.48</title>
+<title>IFP 測試報告審核工具 v4.51</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -1247,7 +1247,7 @@ kbd { background:var(--card); border:1px solid var(--border); border-radius:4px;
     <button class="hdr-btn" onclick="openModal('limitPage')">⚠️ AI 審核限制</button>
     <button class="hdr-btn" onclick="showHistory()" title="最近審核記錄">📋 審核記錄</button>
     <button class="hdr-btn" onclick="copyShareUrl()" title="複製工具網址">🔗 分享工具</button>
-    <span class="version-tag">v4.48 · IFP QC</span>
+    <span class="version-tag">v4.51 · IFP QC</span>
   </div>
 </header>
 
@@ -1666,24 +1666,62 @@ function detectUniversalFlags(text) {
 }
 
 // 輕量PDF文字取樣（僅供分類辨識用，只讀前5頁，不追求完整）
-// 依pdfjsLib文字項目的Y座標判斷是否換行，重建表格的行結構
-// （原本直接用空格join會讓整頁文字變成一整條無斷行的字串，破壞表格的列結構，
-// 小型免費模型很容易讀不出表格內容，誤判成「沒有數據」）
+// 依pdfjsLib文字項目的座標重建表格的列與欄結構
+// （原本直接用空格join會讓整頁文字變成一整條無斷行的字串，AI讀不出表格內容；
+// 後來只加Y座標斷行後，同一列裡多個數字仍然只用空格分隔，AI容易數錯第幾個數字對應哪個欄位，
+// 曾實測出把百分比數字誤讀成電壓量測值、算出3105%這種離譜假結果。
+// 這次改用X座標間距重建欄位分隔——關鍵細節：
+// 1) pdfjsLib對「純空白」文字項目回傳的width經常是壞掉的離譜數值（實測過一個空格width顯示639），
+//    必須先濾掉這類項目、只用真正有內容的文字片段本身的寬度去算間距，欄位邊界才會正確浮現
+// 2) 門檻值不能用固定數字：實測不同報告類型的字體大小差異達20%以上（Electrical Performance中位數
+//    8.84 vs Derating的11.00），固定門檻10在小字體報告上會漏判欄位邊界（實測「CE22 3.201」這種
+//    測試點編號跟規格值黏在一起沒被切開）。改成門檻＝該文字片段自己的字體大小×0.9，跟著字體縮放。
+// 已用4份完全不同結構的真實報告驗證（Derating的3欄規格+2欄實測表格、EMI的key-value表頭+頻點表、
+// EMS的大段純文字判定說明、Electrical Performance的小字體多欄位表格），確認：表格數據列都能正確
+// 切出逐欄分隔，大段純文字段落沒有被誤切（EMS測試裡18行純文字只有1行是真正的key-value才含分隔符）
 function joinTextItemsWithLineBreaks(items) {
-  let out = '';
+  const Y_TOLERANCE = 2;   // 容許誤差，避免同一列內細微Y座標差異被誤判成換行
+  const GAP_RATIO = 0.9;   // 欄位間距門檻 = 該文字片段的字體大小 × 此比例，跟著字體大小縮放
+
+  // 先濾掉純空白項目：pdfjsLib對這類項目回傳的width常常是壞掉的離譜數值，
+  // 若不濾掉會污染間距計算，導致算出來的欄位邊界完全失真
+  const realItems = items.filter(it => it.str && it.str.trim() !== '');
+
+  // 依Y座標分組成列
+  const rows = [];
+  let currentRow = [];
   let lastY = null;
-  const Y_TOLERANCE = 2; // 容許誤差，避免同一行內細微座標差異被誤判成換行
-  for (const item of items) {
+  for (const item of realItems) {
     const y = item.transform ? item.transform[5] : null;
     if (lastY !== null && y !== null && Math.abs(y - lastY) > Y_TOLERANCE) {
-      out += '\n';
-    } else if (out && !out.endsWith('\n')) {
-      out += ' ';
+      rows.push(currentRow);
+      currentRow = [];
     }
-    out += item.str;
+    currentRow.push(item);
     if (y !== null) lastY = y;
   }
-  return out;
+  if (currentRow.length) rows.push(currentRow);
+
+  // 每一列內依X座標排序，用「相對於字體大小」的間距判斷是否插入欄位分隔符號「 | 」
+  return rows.map(row => {
+    const sorted = [...row].sort((a, b) => (a.transform?.[4] || 0) - (b.transform?.[4] || 0));
+    let line = '';
+    let prevEndX = null;
+    for (const item of sorted) {
+      const x = item.transform ? item.transform[4] : null;
+      const w = item.width || 0;
+      const fontSize = item.transform ? Math.abs(item.transform[3]) || 10 : 10;
+      const threshold = fontSize * GAP_RATIO;
+      if (prevEndX !== null && x !== null) {
+        const gap = x - prevEndX;
+        if (gap > threshold) line += ' | ';
+        else if (gap > 0.3) line += ' ';
+      }
+      line += item.str;
+      if (x !== null) prevEndX = x + w;
+    }
+    return line;
+  }).join('\n');
 }
 
 async function extractSampleText(base64) {
@@ -2208,6 +2246,10 @@ T3 為負值時，說明可能的工程意義：Panel Vcc比有效信號更早�
 - 例：規格上限1200mV、實測1100mV，裕量% = 100/1200 = 8.3%，即使判OK仍須標WARN並點名`,
 
     DERATING: `## 元件降額測試審核規則
+
+### 極重要：欄位對應自我驗證（每一筆數據下判定前必做，這是最容易出錯的地方）
+Other_IC類型的表格常見「3欄規格＋2欄實測＋3欄百分比」這種不對稱欄位配置（例：規格為Vrms Min/Vrms Max/Vsurge共3欄，但實測值只有Vrms/Vsurge共2欄，百分比結果卻有3欄），數字全部緊鄰排列、只用空白分隔、沒有欄位標籤跟著數字走，非常容易對錯位置——尤其容易把「百分比欄位的數字」誤認成「電壓/電流的實際量測值」去做超標判斷，產生離譜的假結果（例如把65.2這個百分比誤讀成65.2V去跟2.1V的規格比較，算出3105%這種不可能存在的假超標）。
+**逐筆數據下判定前，務必先做這個驗證**：用你認定的「實測值」除以你認定的「規格值」，看算出來的百分比，是否等於報告本身寫的那個百分比結果欄位數字。算不出來、或差距很大 → 代表你認錯欄位了，回頭重新對應這一列每個數字分別屬於規格/實測/百分比三類中的哪一類，不要在對應不確定的情況下就直接判定FAIL。**任何百分比只要換算後明顯超過100%甚至到幾百幾千%，先假設自己看錯欄位，不要假設報告數據異常**，因為降額測試的實測值本來就不可能真的是規格值的30倍以上。
 
 ### 零、判定門檻本身要先審（重要，不要照單全收報告自訂的門檻）
 - 檢查報告採用的判定門檻本身：電壓應力判定值若為「<100%」（等於允許用滿絕對最大額定值，完全沒有降額餘裕）→ WARN，備註「本報告的降額判定門檻為<100%，等同無降額餘裕，建議以≤90%重新評估裕量是否足夠」
