@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFP 測試報告審核工具 v4.46</title>
+<title>IFP 測試報告審核工具 v4.48</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -1247,7 +1247,7 @@ kbd { background:var(--card); border:1px solid var(--border); border-radius:4px;
     <button class="hdr-btn" onclick="openModal('limitPage')">⚠️ AI 審核限制</button>
     <button class="hdr-btn" onclick="showHistory()" title="最近審核記錄">📋 審核記錄</button>
     <button class="hdr-btn" onclick="copyShareUrl()" title="複製工具網址">🔗 分享工具</button>
-    <span class="version-tag">v4.46 · IFP QC</span>
+    <span class="version-tag">v4.48 · IFP QC</span>
   </div>
 </header>
 
@@ -1666,6 +1666,26 @@ function detectUniversalFlags(text) {
 }
 
 // 輕量PDF文字取樣（僅供分類辨識用，只讀前5頁，不追求完整）
+// 依pdfjsLib文字項目的Y座標判斷是否換行，重建表格的行結構
+// （原本直接用空格join會讓整頁文字變成一整條無斷行的字串，破壞表格的列結構，
+// 小型免費模型很容易讀不出表格內容，誤判成「沒有數據」）
+function joinTextItemsWithLineBreaks(items) {
+  let out = '';
+  let lastY = null;
+  const Y_TOLERANCE = 2; // 容許誤差，避免同一行內細微座標差異被誤判成換行
+  for (const item of items) {
+    const y = item.transform ? item.transform[5] : null;
+    if (lastY !== null && y !== null && Math.abs(y - lastY) > Y_TOLERANCE) {
+      out += '\n';
+    } else if (out && !out.endsWith('\n')) {
+      out += ' ';
+    }
+    out += item.str;
+    if (y !== null) lastY = y;
+  }
+  return out;
+}
+
 async function extractSampleText(base64) {
   try {
     if (typeof pdfjsLib === 'undefined') return '';
@@ -1679,7 +1699,7 @@ async function extractSampleText(base64) {
     for (let i = 1; i <= pages; i++) {
       const page = await pdfDoc.getPage(i);
       const tc = await page.getTextContent();
-      text += tc.items.map(x => x.str).join(' ') + '\n';
+      text += joinTextItemsWithLineBreaks(tc.items) + '\n';
       if (text.length > 8000) break;
     }
     return text.slice(0, 8000);
@@ -2698,7 +2718,7 @@ async function startAnalysis() {
         for (let i = 1; i <= pagesToRead; i++) {
           const page = await pdfDoc.getPage(i);
           const tc   = await page.getTextContent();
-          pdfText += `\n--- 第 ${i} 頁 ---\n` + tc.items.map(x => x.str).join(' ');
+          pdfText += `\n--- 第 ${i} 頁 ---\n` + joinTextItemsWithLineBreaks(tc.items);
         }
       } else {
         const raw = atob(fileBase64);
@@ -2717,6 +2737,17 @@ async function startAnalysis() {
         '2. 檔案有加密保護\n' +
         '3. 請改用 Chrome 瀏覽器開啟工具後重試'
       );
+    }
+
+    // 資料密度檢查（重要）：文字長度夠長不代表真的抓到數據——常見情況是報告的標題/頁碼/頁尾是原生文字，
+    // 但實際的數據表格是用截圖貼上去的圖片，pdfjsLib讀不到圖片內容，只留下文字層那些字，長度夠但沒有實質內容。
+    // 用「數字+百分比符號的出現密度」當代理指標，密度過低就提醒使用者，不要讓AI拿著空殼去分析卻不自知。
+    if (!isXlsx && !isDocx) {
+      const numericMatches = pdfText.match(/\d+\.?\d*\s*%|\d+\.\d{2,}/g) || [];
+      const density = numericMatches.length / (pdfText.length / 1000); // 每千字元的數值出現次數
+      if (pdfText.length < 3000 && density < 3) {
+        addLog(`⚠️ 文字長度${pdfText.length}字元，但數值密度偏低（每千字僅${density.toFixed(1)}個），此PDF的數據表格可能是以截圖/圖片方式嵌入，文字層讀不到實際測試數據，AI可能會誤判為「報告內容空白」`, false);
+      }
     }
 
     addLog(`文字解析完成（${pdfText.length} 字元）`, true);
@@ -3313,8 +3344,25 @@ function _generateReportHTML(raw, fname, stage, ts, dt, mode) {
   const overallColor = { PASS:'#16a34a', FAIL:'#dc2626', WARN:'#d97706', CONTRADICTION:'#9333ea', UNKNOWN:'#6b7280' };
   const overallBg    = { PASS:'#f0fdf4', FAIL:'#fef2f2', WARN:'#fffbeb', CONTRADICTION:'#faf5ff', UNKNOWN:'#f9fafb' };
 
-  // ── 統計（從表格行精確計算）──
+  // ── 統計（從表格行精確計算，同時支援Markdown管線表格與AI可能直接輸出的原生HTML表格）──
   let passCount=0, failCount=0, warnCount=0, contCount=0;
+
+  const looksLikeHtmlTable = /<table[\s>]/i.test(raw);
+  if (looksLikeHtmlTable) {
+    // AI這次直接輸出了原生HTML表格（不是Markdown管線語法），改用DOM解析每個儲存格文字內容計數
+    try {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = raw;
+      tmp.querySelectorAll('td, th').forEach(cell => {
+        const t = cell.textContent.trim();
+        if (t === 'PASS') passCount++;
+        else if (t === 'FAIL') failCount++;
+        else if (t === 'WARN') warnCount++;
+        else if (t === 'CONTRADICTION') contCount++;
+      });
+    } catch (e) { /* DOM解析失敗則不計數，避免整個渲染中斷 */ }
+  }
+  // 不論是否為HTML表格，都同時跑一次Markdown管線比對（有些回覆會混用兩種格式），避免漏算
   raw.split('\n').filter(l => l.trim().startsWith('|') && l.trim().endsWith('|')).forEach(row => {
     if (/^\|[\s\-:|]+\|/.test(row.trim())) return;
     row.split('|').map(c => c.trim()).forEach(c => {
