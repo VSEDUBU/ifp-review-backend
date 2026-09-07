@@ -13,7 +13,6 @@
   --card:      #FFFFFF;
   --card2:     #F0F4F8;
   --border:    rgba(0,0,0,0.09);
-  --border2:   rgba(0,0,0,0.15);
   --accent:    #1F4E78;
   --accent2:   #004FA3;
   --text:      #1A2433;
@@ -21,7 +20,6 @@
   --pass:      #70AD47;
   --fail:      #FF0000;
   --warn:      #FFC000;
-  --na:        #6B7A8D;
   --pass-bg:   rgba(112,173,71,0.1);
   --fail-bg:   rgba(255,0,0,0.1);
   --warn-bg:   rgba(255,192,0,0.1);
@@ -217,7 +215,6 @@ header .subtitle {
   border-radius: 6px;
   cursor: pointer;
   user-select: none;
-  transition: background .12s;
   font-size: 12px;
   font-weight: 600;
 }
@@ -245,7 +242,6 @@ header .subtitle {
   border-radius: 5px;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all .12s;
   background: none;
   width: 100%; text-align: left; font-size: 12px;
 }
@@ -441,46 +437,6 @@ header .subtitle {
   background: var(--accent2);
 }
 
-.alert-box {
-  padding: 12px 14px;
-  border-radius: 6px;
-  font-size: 12px;
-  margin: 12px 0;
-  border-left: 4px solid;
-}
-
-.alert-success {
-  background: rgba(112,173,71,0.1);
-  border-left-color: var(--pass);
-  color: var(--pass);
-}
-
-.alert-error {
-  background: rgba(255,0,0,0.1);
-  border-left-color: var(--fail);
-  color: var(--fail);
-}
-
-.alert-info {
-  background: rgba(31,78,120,0.1);
-  border-left-color: var(--accent);
-  color: var(--accent);
-}
-
-.loading-spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(31,78,120,0.3);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 @media (max-width: 1200px) {
   .sidebar { width: 240px; }
   .main-panel { padding: 16px 20px; }
@@ -499,7 +455,6 @@ header .subtitle {
 </header>
 
 <div class="main-layout">
-  <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="sidebar-section">
       <div class="sidebar-label">📋 審核模式</div>
@@ -529,7 +484,7 @@ header .subtitle {
       <div class="sidebar-label">🔌 後端設置</div>
       <div class="field-row">
         <label class="field-lbl">服務 URL</label>
-        <input type="text" class="field-input" id="backendUrl" value="https://ifp-review-backend.onrender.com" placeholder="https://ifp-review-backend.onrender.com">
+        <input type="text" class="field-input" id="backendUrl" value="https://ifp-review-backend.onrender.com">
       </div>
     </div>
 
@@ -540,7 +495,6 @@ header .subtitle {
     </div>
   </div>
 
-  <!-- MAIN PANEL -->
   <div class="main-panel" id="mainPanel">
     <div class="idle-state">
       <div style="font-size: 32px;">📋</div>
@@ -639,10 +593,7 @@ function setupUploadZone() {
   const input = document.getElementById('fileInput');
   
   zone.onclick = () => input.click();
-  zone.ondragover = (e) => {
-    e.preventDefault();
-    zone.classList.add('drag-over');
-  };
+  zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('drag-over'); };
   zone.ondragleave = () => zone.classList.remove('drag-over');
   zone.ondrop = (e) => {
     e.preventDefault();
@@ -691,12 +642,8 @@ function switchMode(mode) {
 
 function startAnalysis() {
   if (!selectedFile || !selectedType) return;
-  
-  if (currentMode === 'auto') {
-    analyzeAuto();
-  } else {
-    analyzeManual();
-  }
+  if (currentMode === 'auto') analyzeAuto();
+  else analyzeManual();
 }
 
 async function analyzeAuto() {
@@ -710,9 +657,7 @@ async function analyzeAuto() {
       <div style="margin-bottom: 12px;">
         <div style="font-size: 13px; font-weight: 600; color: var(--accent);">正在分析報告...</div>
       </div>
-      <div class="scan-bar-wrap">
-        <div class="scan-bar"></div>
-      </div>
+      <div class="scan-bar-wrap"><div class="scan-bar"></div></div>
       <div style="text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px;">
         調用 AI 模型進行審核<br>
         <span style="font-size: 11px; opacity: 0.7;">這可能需要 30-60 秒</span>
@@ -735,18 +680,13 @@ async function analyzeAuto() {
     });
     
     const data = await response.json();
-    
     if (data.status === 'success') {
       showAutoResult(data);
     } else {
       showError(data.message || '分析失敗');
     }
   } catch (err) {
-    if (err.name === 'AbortError') {
-      showError('❌ 分析已取消');
-    } else {
-      showError(`錯誤: ${err.message}`);
-    }
+    if (err.name !== 'AbortError') showError(`錯誤: ${err.message}`);
   }
 }
 
@@ -758,14 +698,10 @@ async function analyzeManual() {
     const response = await fetch(`${backendUrl}/api/generate-prompt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: selectedType,
-        stage: 'DVT'
-      })
+      body: JSON.stringify({ type: selectedType, stage: 'DVT' })
     });
     
     const data = await response.json();
-    
     if (data.status === 'success') {
       showManualPrompt(data.prompt);
     } else {
@@ -780,24 +716,15 @@ function showAutoResult(data) {
   const mainPanel = document.getElementById('mainPanel');
   const verdict = data.verdict;
   const verdictClass = verdict.toLowerCase();
-  const verdictText = {
-    'PASS': '✅ 通過',
-    'FAIL': '❌ 失敗',
-    'WARN': '⚠️ 警告',
-    'CONTRADICTION': '🔴 矛盾'
-  }[verdict] || verdict;
+  const verdictText = {'PASS': '✅ 通過', 'FAIL': '❌ 失敗', 'WARN': '⚠️ 警告', 'CONTRADICTION': '🔴 矛盾'}[verdict] || verdict;
   
   mainPanel.innerHTML = `
     <div class="result-container">
       <div style="margin-bottom: 16px;">
         <div class="result-verdict ${verdictClass}">${verdictText}</div>
-        <div style="font-size: 11px; color: var(--muted);">
-          📄 ${data.filename} | ${new Date(data.timestamp).toLocaleString('zh-TW')}
-        </div>
+        <div style="font-size: 11px; color: var(--muted);">📄 ${data.filename} | ${new Date(data.timestamp).toLocaleString('zh-TW')}</div>
       </div>
-      
       <div class="result-display">${data.result}</div>
-      
       <div class="result-actions">
         <button onclick="downloadExcel(${JSON.stringify(data).replace(/"/g, '&quot;')})">📊 下載 Excel</button>
         <button onclick="downloadHTML(${JSON.stringify(data).replace(/"/g, '&quot;')})">🌐 下載 HTML</button>
@@ -836,12 +763,11 @@ function showManualPrompt(prompt) {
 
       <div style="margin-top: 20px; padding: 16px; background: var(--card2); border-radius: 8px; border-left: 4px solid var(--accent);">
         <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 10px;">📋 步驟 2：粘貼 Claude 分析結果</div>
-        <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">在 Claude.ai 中分析報告後，將結果複製並粘貼到下方框中：</p>
+        <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">在 Claude.ai 中分析報告後，將結果複製並粘貼到下方框中，然後點確認即可直接下載 Excel：</p>
         <textarea class="field-textarea" id="claudeResult" placeholder="粘貼 Claude 的分析結果..."></textarea>
         <button onclick="processManualResult()" style="width: 100%; margin-top: 10px; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
-          ✅ 確認結果並生成報告
+          ✅ 確認並下載 Excel
         </button>
-        <div id="processStatus" style="display: none; margin-top: 10px;"></div>
       </div>
 
       <div class="result-actions" style="margin-top: 16px;">
@@ -858,25 +784,18 @@ function togglePrompt() {
 
 function copyPrompt() {
   navigator.clipboard.writeText(fullPrompt).then(() => {
-    alert('✅ Prompt 已複製，請貼到 Claude.ai');
+    alert('✅ Prompt 已複製');
   });
 }
 
 function processManualResult() {
   const claudeResult = document.getElementById('claudeResult').value.trim();
-  const statusDiv = document.getElementById('processStatus');
   
   if (!claudeResult) {
-    statusDiv.innerHTML = '<div class="alert-box alert-error">❌ 請先粘貼 Claude 的分析結果</div>';
-    statusDiv.style.display = 'block';
+    alert('❌ 請先粘貼 Claude 的分析結果');
     return;
   }
 
-  // 顯示處理中
-  statusDiv.innerHTML = '<div class="alert-box alert-info">⏳ 正在生成報告...</div>';
-  statusDiv.style.display = 'block';
-
-  // 自動判定
   let verdict = 'PASS';
   if (claudeResult.toUpperCase().includes('FAIL') && !claudeResult.toUpperCase().includes('CONTRADICTION')) {
     verdict = 'FAIL';
@@ -891,48 +810,13 @@ function processManualResult() {
     report_type: selectedType,
     stage: 'DVT',
     verdict: verdict,
+    prompt: fullPrompt,  // ✅ 添加完整 Prompt
     result: claudeResult,
     timestamp: new Date().toISOString()
   };
 
-  // ✅ 調用導出並顯示狀態
-  downloadExcelWithFeedback(data, statusDiv);
-}
-
-function downloadExcelWithFeedback(data, statusDiv) {
-  const backendUrl = document.getElementById('backendUrl').value;
-  
-  fetch(`${backendUrl}/api/export/excel`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  })
-  .then(res => {
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-    return res.blob();
-  })
-  .then(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    // ✅ 顯示成功信息
-    statusDiv.innerHTML = `
-      <div class="alert-box alert-success">✅ Excel 已下載！</div>
-      <div style="margin-top: 10px; font-size: 11px; color: var(--muted);">
-        文件名：${a.download}
-      </div>
-    `;
-  })
-  .catch(err => {
-    // ❌ 顯示錯誤信息
-    statusDiv.innerHTML = `<div class="alert-box alert-error">❌ 導出失敗: ${err.message}</div>`;
-  });
+  // ✅ 直接下载，不显示任何内容
+  downloadExcel(data);
 }
 
 function downloadExcel(data) {
@@ -987,10 +871,7 @@ function showError(msg) {
 }
 
 function cancelAnalysis() {
-  if (analysisController) {
-    analysisController.abort();
-    showError('❌ 分析已取消');
-  }
+  if (analysisController) analysisController.abort();
 }
 
 function startNewAnalysis() {
@@ -1000,9 +881,7 @@ function startNewAnalysis() {
 
 function loadSettings() {
   const saved = localStorage.getItem('ifp_backend_url');
-  if (saved) {
-    document.getElementById('backendUrl').value = saved;
-  }
+  if (saved) document.getElementById('backendUrl').value = saved;
 }
 
 window.onbeforeunload = () => {
