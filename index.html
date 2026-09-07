@@ -70,25 +70,11 @@ header .subtitle {
   margin-left: auto;
   display: flex; align-items: center; gap: 12px;
 }
-.lang-selector {
-  background: var(--card2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all .2s;
-}
-.lang-selector:hover {
-  border-color: var(--accent);
-  background: rgba(31,78,120,0.05);
-}
 .version-tag {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px; color: white;
   background: var(--accent);
   padding: 4px 10px; border-radius: 4px;
-  border: 1px solid var(--accent);
 }
 
 /* ── LAYOUT ── */
@@ -213,6 +199,8 @@ header .subtitle {
   cursor: pointer;
   user-select: none;
   transition: background .12s;
+  font-size: 12px;
+  font-weight: 600;
 }
 .type-group-header:hover { background: #E8EEF5; }
 .type-group-header.open { border-color: var(--accent); background: rgba(31,78,120,0.05); }
@@ -323,6 +311,7 @@ header .subtitle {
   background: rgba(31,78,120,0.1);
   border-radius: 2px;
   overflow: hidden;
+  margin-top: 12px;
 }
 .scan-bar {
   height: 100%;
@@ -359,6 +348,23 @@ header .subtitle {
   color: var(--text);
   white-space: pre-wrap;
   word-wrap: break-word;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.prompt-display {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .result-actions {
@@ -367,7 +373,7 @@ header .subtitle {
   margin-top: 16px;
   flex-wrap: wrap;
 }
-.result-actions button {
+.result-actions button, .result-actions a {
   flex: 1;
   min-width: 120px;
   padding: 10px;
@@ -379,38 +385,14 @@ header .subtitle {
   font-weight: 600;
   cursor: pointer;
   transition: all .2s;
-}
-.result-actions button:hover {
-  background: var(--accent2);
-}
-
-.export-options {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 12px;
-  background: var(--card2);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-.export-option {
-  flex: 1;
-  min-width: 100px;
-  padding: 8px;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-  cursor: pointer;
+  text-decoration: none;
   text-align: center;
-  transition: all .2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.export-option:hover {
-  background: rgba(31,78,120,0.07);
-  border-color: var(--accent);
+.result-actions button:hover, .result-actions a:hover {
+  background: var(--accent2);
 }
 
 @media (max-width: 1200px) {
@@ -426,10 +408,6 @@ header .subtitle {
   <h1>IFP 測試報告審核工具</h1>
   <span class="subtitle">v6.0 企業版</span>
   <div class="hdr-right">
-    <select class="lang-selector" id="langSelector" onchange="changeLanguage()">
-      <option value="zh_TW">繁體中文</option>
-      <option value="en_US">English</option>
-    </select>
     <span class="version-tag">ENTERPRISE</span>
   </div>
 </header>
@@ -469,20 +447,7 @@ header .subtitle {
       <div class="sidebar-label">🔌 後端設置</div>
       <div class="field-row">
         <label class="field-lbl">服務 URL</label>
-        <input type="text" class="field-input" id="backendUrl" value="http://localhost:5000" placeholder="http://localhost:5000">
-      </div>
-    </div>
-
-    <!-- EXPORT CONFIG -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">💾 導出設置</div>
-      <div class="field-row">
-        <label class="field-lbl">導出格式</label>
-        <select class="field-select" id="exportFormat">
-          <option value="excel">📊 Excel (.xlsx)</option>
-          <option value="html">🌐 HTML (.html)</option>
-          <option value="both">📦 兩種格式</option>
-        </select>
+        <input type="text" class="field-input" id="backendUrl" value="https://ifp-review-backend.onrender.com" placeholder="https://ifp-review-backend.onrender.com">
       </div>
     </div>
 
@@ -538,7 +503,6 @@ const reportTypes = {
 };
 
 let currentMode = 'auto';
-let currentLanguage = 'zh_TW';
 let selectedType = 'AUTO';
 let selectedFile = null;
 let analysisController = null;
@@ -561,7 +525,7 @@ function renderTypeGroups() {
     const header = document.createElement('div');
     header.className = 'type-group-header';
     header.innerHTML = `
-      <div style="flex: 1; font-size: 12px; font-weight: 600;">${group}</div>
+      <div style="flex: 1;">${group}</div>
       <div style="color: var(--muted); font-size: 10px;">(${items.length})</div>
     `;
     header.onclick = () => {
@@ -645,11 +609,6 @@ function switchMode(mode) {
   event.target.classList.add('active');
 }
 
-function changeLanguage() {
-  currentLanguage = document.getElementById('langSelector').value;
-  // 可以添加動態語言切換邏輯
-}
-
 function startAnalysis() {
   if (!selectedFile || !selectedType) return;
   
@@ -711,19 +670,30 @@ async function analyzeAuto() {
   }
 }
 
-function analyzeManual() {
+async function analyzeManual() {
   const mainPanel = document.getElementById('mainPanel');
-  mainPanel.innerHTML = `
-    <div class="result-container">
-      <div style="text-align: center; padding: 20px;">
-        <div style="font-size: 18px; margin-bottom: 10px;">📋 手動模式</div>
-        <p style="color: var(--muted); margin-bottom: 20px;">請在 Claude.ai 中分析報告，然後將結果粘貼到工具中</p>
-        <button class="analyze-btn" onclick="alert('手動模式：請複製 Prompt 到 Claude.ai 進行分析')" style="width: 100%;">
-          🔗 打開 Claude.ai
-        </button>
-      </div>
-    </div>
-  `;
+  const backendUrl = document.getElementById('backendUrl').value;
+  
+  try {
+    const response = await fetch(`${backendUrl}/api/generate-prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: selectedType,
+        stage: 'DVT'
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.status === 'success') {
+      showManualPrompt(data.prompt);
+    } else {
+      showError(data.message || '生成 Prompt 失敗');
+    }
+  } catch (err) {
+    showError(`錯誤: ${err.message}`);
+  }
 }
 
 function showAutoResult(data) {
@@ -736,8 +706,6 @@ function showAutoResult(data) {
     'WARN': '⚠️ 警告',
     'CONTRADICTION': '🔴 矛盾'
   }[verdict] || verdict;
-  
-  const exportFormat = document.getElementById('exportFormat').value;
   
   mainPanel.innerHTML = `
     <div class="result-container">
@@ -753,9 +721,30 @@ function showAutoResult(data) {
       <div class="result-display">${data.result}</div>
       
       <div class="result-actions">
-        <button onclick="copyResult(\`${data.result.replace(/`/g, '\\`')}\`)">📋 複製結果</button>
-        <button onclick="downloadReport('${data.filename.replace(/'/g, "\\'")}', ${JSON.stringify(data).replace(/"/g, '&quot;')}, '${exportFormat}')">💾 下載報告</button>
+        <button onclick="downloadExcel(${JSON.stringify(data).replace(/"/g, '&quot;')})">📊 下載 Excel</button>
+        <button onclick="downloadHTML(${JSON.stringify(data).replace(/"/g, '&quot;')})">🌐 下載 HTML</button>
         <button onclick="startNewAnalysis()">🔄 新建審核</button>
+      </div>
+    </div>
+  `;
+}
+
+function showManualPrompt(prompt) {
+  const mainPanel = document.getElementById('mainPanel');
+  
+  mainPanel.innerHTML = `
+    <div class="result-container">
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 8px;">📝 手動模式 Prompt</div>
+        <p style="font-size: 12px; color: var(--muted); margin-bottom: 12px;">請複製下面的 Prompt 到 Claude.ai 中分析報告文本</p>
+      </div>
+      
+      <div class="prompt-display">${prompt}</div>
+      
+      <div class="result-actions">
+        <button onclick="copyPrompt(\`${prompt.replace(/`/g, '\\`')}\`)">📋 複製 Prompt</button>
+        <a href="https://claude.ai" target="_blank">🔗 打開 Claude.ai</a>
+        <button onclick="startNewAnalysis()">🔄 返回</button>
       </div>
     </div>
   `;
@@ -772,20 +761,10 @@ function showError(msg) {
   `;
 }
 
-function downloadReport(filename, data, format) {
-  const backendUrl = document.getElementById('backendUrl').value || 'http://localhost:5000';
-  const lang = document.getElementById('langSelector').value;
+function downloadExcel(data) {
+  const backendUrl = document.getElementById('backendUrl').value;
   
-  if (format === 'both' || format === 'excel') {
-    downloadExcel(backendUrl, data, lang);
-  }
-  if (format === 'both' || format === 'html') {
-    downloadHTML(backendUrl, data, lang);
-  }
-}
-
-function downloadExcel(backendUrl, data, lang) {
-  fetch(`${backendUrl}/api/export/excel?lang=${lang}`, {
+  fetch(`${backendUrl}/api/export/excel`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -802,8 +781,10 @@ function downloadExcel(backendUrl, data, lang) {
   .catch(err => alert(`❌ Excel 下載失敗: ${err.message}`));
 }
 
-function downloadHTML(backendUrl, data, lang) {
-  fetch(`${backendUrl}/api/export/html?lang=${lang}`, {
+function downloadHTML(data) {
+  const backendUrl = document.getElementById('backendUrl').value;
+  
+  fetch(`${backendUrl}/api/export/html`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -820,17 +801,17 @@ function downloadHTML(backendUrl, data, lang) {
   .catch(err => alert(`❌ HTML 下載失敗: ${err.message}`));
 }
 
+function copyPrompt(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    alert('✅ Prompt 已複製，請貼到 Claude.ai');
+  });
+}
+
 function cancelAnalysis() {
   if (analysisController) {
     analysisController.abort();
     showError('❌ 分析已取消');
   }
-}
-
-function copyResult(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    alert('✅ 結果已複製');
-  });
 }
 
 function startNewAnalysis() {
