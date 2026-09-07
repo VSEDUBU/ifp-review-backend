@@ -350,9 +350,11 @@ header .subtitle {
   display: flex;
   gap: 8px;
   margin-top: 16px;
+  flex-wrap: wrap;
 }
 .result-actions button {
   flex: 1;
+  min-width: 100px;
   padding: 10px;
   background: var(--accent);
   border: none;
@@ -445,6 +447,8 @@ header .subtitle {
 @media (max-width: 1200px) {
   .sidebar { width: 220px; }
   .main-panel { padding: 16px 20px; }
+  .result-actions { flex-direction: column; }
+  .result-actions button { min-width: auto; }
 }
 </style>
 </head>
@@ -836,7 +840,7 @@ function showAutoResult(data) {
       <div class="result-display">${data.result}</div>
       
       <div class="result-actions">
-        <button onclick="exportHTML(${JSON.stringify(data).replace(/"/g, '&quot;')})">📥 下載 HTML</button>
+        <button onclick="exportHTML('${data.filename.replace(/'/g, "\\'")}', '${data.result.replace(/'/g, "\\'")}')">📥 下載 HTML</button>
         <button onclick="exportExcelAuto(${JSON.stringify(data).replace(/"/g, '&quot;')})">📊 下載 Excel</button>
         <button onclick="startNewAnalysis()">🔄 新建審核</button>
       </div>
@@ -879,14 +883,15 @@ function showError(msg) {
   `;
 }
 
-function exportHTML(data) {
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${data.filename}</title><style>body{font-family:Arial;margin:40px;}pre{background:#f5f5f5;padding:15px;}</style></head><body><h1>分析結果</h1><p>${data.filename}</p><pre>${data.result}</pre></body></html>`;
+function exportHTML(filename, result) {
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${filename}</title><style>body{font-family:Arial;margin:40px;}pre{background:#f5f5f5;padding:15px;}</style></head><body><h1>分析結果</h1><p>${filename}</p><pre>${result}</pre></body></html>`;
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${data.filename.replace('.pdf', '')}_result.html`;
+  a.download = `${filename.replace('.pdf', '')}_result.html`;
   a.click();
+  URL.revokeObjectURL(url);
 }
 
 function exportExcelAuto(data) {
@@ -907,6 +912,7 @@ function exportExcelAuto(data) {
     a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
+    alert('✅ Excel 已下載');
   })
   .catch(err => {
     alert(`❌ Excel 下載失敗: ${err.message}`);
@@ -940,6 +946,7 @@ function exportExcelManual(resultText) {
     a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
+    alert('✅ Excel 已下載');
   })
   .catch(err => {
     alert(`❌ Excel 下載失敗: ${err.message}`);
