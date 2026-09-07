@@ -25,7 +25,6 @@
   --pass-bg:   rgba(112,173,71,0.1);
   --fail-bg:   rgba(255,0,0,0.1);
   --warn-bg:   rgba(255,192,0,0.1);
-  --scan:      #0066CC;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,7 +37,6 @@ body {
   flex-direction: column;
 }
 
-/* ── HEADER ── */
 header {
   background: var(--bg2);
   border-bottom: 2px solid var(--accent);
@@ -50,26 +48,32 @@ header {
   flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
+
 .logo-dot {
   width: 12px; height: 12px; border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 8px rgba(31,78,120,0.4);
   animation: pulse 2s ease-in-out infinite;
 }
+
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
 header h1 {
   font-family: 'JetBrains Mono', monospace;
   font-size: 16px; font-weight: 600;
   letter-spacing: .06em; color: var(--accent);
 }
+
 header .subtitle {
   font-size: 11px; color: var(--muted);
   margin-left: 4px;
 }
+
 .hdr-right {
   margin-left: auto;
   display: flex; align-items: center; gap: 12px;
 }
+
 .version-tag {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px; color: white;
@@ -77,7 +81,6 @@ header .subtitle {
   padding: 4px 10px; border-radius: 4px;
 }
 
-/* ── LAYOUT ── */
 .main-layout {
   display: flex;
   flex: 1;
@@ -85,7 +88,6 @@ header .subtitle {
   min-height: 0;
 }
 
-/* ── SIDEBAR ── */
 .sidebar {
   width: 280px;
   flex-shrink: 0;
@@ -98,7 +100,9 @@ header .subtitle {
   gap: 16px;
   box-shadow: 1px 0 4px rgba(0,0,0,0.04);
 }
+
 .sidebar-section { display: flex; flex-direction: column; gap: 8px; }
+
 .sidebar-label {
   font-family: 'JetBrains Mono', monospace;
   font-size: 9px; font-weight: 600;
@@ -108,7 +112,6 @@ header .subtitle {
   border-bottom: 1px solid var(--border);
 }
 
-/* MODE SELECTOR */
 .mode-tabs {
   display: flex;
   gap: 4px;
@@ -116,6 +119,7 @@ header .subtitle {
   padding: 4px;
   border-radius: 8px;
 }
+
 .mode-tab {
   flex: 1;
   padding: 8px 10px;
@@ -128,10 +132,12 @@ header .subtitle {
   cursor: pointer;
   transition: all .2s;
 }
+
 .mode-tab:hover {
   background: rgba(31,78,120,0.05);
   color: var(--accent);
 }
+
 .mode-tab.active {
   background: var(--accent);
   color: white;
@@ -141,7 +147,7 @@ header .subtitle {
 
 .field-row { display: flex; flex-direction: column; gap: 3px; }
 .field-lbl { font-size: 11px; color: var(--muted); }
-.field-input, .field-select {
+.field-input, .field-select, .field-textarea {
   background: var(--card2);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -151,12 +157,18 @@ header .subtitle {
   outline: none;
   transition: border-color .15s;
 }
-.field-input:focus, .field-select:focus { 
+
+.field-input:focus, .field-select:focus, .field-textarea:focus { 
   border-color: var(--accent); 
   box-shadow: 0 0 0 2px rgba(31,78,120,0.1); 
 }
 
-/* upload zone */
+.field-textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
 .upload-zone {
   border: 1.5px dashed rgba(31,78,120,0.3);
   border-radius: 10px;
@@ -167,13 +179,16 @@ header .subtitle {
   background: var(--card2);
   position: relative;
 }
+
 .upload-zone:hover, .upload-zone.drag-over {
   border-color: var(--accent);
   background: rgba(31,78,120,0.04);
 }
+
 .upload-zone input[type=file] {
   position: absolute; inset: 0; opacity: 0; cursor: pointer;
 }
+
 .upload-icon { font-size: 24px; margin-bottom: 6px; }
 .upload-text { font-size: 12px; color: var(--text); font-weight: 500; }
 .upload-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
@@ -186,10 +201,14 @@ header .subtitle {
   display: flex; align-items: center; gap: 8px;
   font-size: 12px;
 }
-.file-selected .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 
-/* type groups */
+.file-selected .fname { 
+  flex: 1; overflow: hidden; text-overflow: ellipsis; 
+  white-space: nowrap; color: var(--text); 
+}
+
 .type-groups { display: flex; flex-direction: column; gap: 6px; }
+
 .type-group-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 5px 8px;
@@ -202,8 +221,10 @@ header .subtitle {
   font-size: 12px;
   font-weight: 600;
 }
+
 .type-group-header:hover { background: #E8EEF5; }
 .type-group-header.open { border-color: var(--accent); background: rgba(31,78,120,0.05); }
+
 .type-group-body {
   display: none;
   flex-direction: column;
@@ -215,7 +236,9 @@ header .subtitle {
   background: var(--bg2);
   margin-top: -1px;
 }
+
 .type-group-header.open + .type-group-body { display: flex; }
+
 .type-item {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 8px;
@@ -226,13 +249,13 @@ header .subtitle {
   background: none;
   width: 100%; text-align: left; font-size: 12px;
 }
+
 .type-item:hover { background: var(--card2); border-color: var(--border); }
 .type-item.active {
   background: rgba(31,78,120,0.07);
   border-color: rgba(31,78,120,0.25);
 }
 
-/* buttons */
 .analyze-btn {
   width: 100%;
   padding: 12px;
@@ -249,15 +272,16 @@ header .subtitle {
   justify-content: center; gap: 8px;
   box-shadow: 0 2px 8px rgba(31,78,120,0.25);
 }
+
 .analyze-btn:hover:not(:disabled) {
   background: var(--accent2);
   box-shadow: 0 4px 14px rgba(31,78,120,0.35);
 }
+
 .analyze-btn:disabled {
   opacity: .4; cursor: not-allowed; box-shadow: none;
 }
 
-/* ── MAIN PANEL ── */
 .main-panel {
   flex: 1;
   overflow-y: auto;
@@ -286,26 +310,6 @@ header .subtitle {
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
-.scan-header {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.scan-title {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px; font-weight: 600; color: var(--accent);
-  display: flex; align-items: center; gap: 8px;
-}
-.scan-title::before {
-  content: '';
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px rgba(31,78,120,0.5);
-  animation: pulse 1.2s ease-in-out infinite;
-}
-
 .scan-bar-wrap {
   height: 4px;
   background: rgba(31,78,120,0.1);
@@ -313,12 +317,14 @@ header .subtitle {
   overflow: hidden;
   margin-top: 12px;
 }
+
 .scan-bar {
   height: 100%;
   background: linear-gradient(90deg, transparent, var(--accent), transparent);
   animation: sweep 1.8s ease-in-out infinite;
   width: 40%;
 }
+
 @keyframes sweep {
   0%  { transform: translateX(-100%); }
   100%{ transform: translateX(350%); }
@@ -332,9 +338,36 @@ header .subtitle {
   font-size: 13px;
   margin-bottom: 12px;
 }
+
 .result-verdict.pass { background: var(--pass-bg); color: var(--pass); }
 .result-verdict.fail { background: var(--fail-bg); color: var(--fail); }
 .result-verdict.warn { background: var(--warn-bg); color: var(--warn); }
+
+.prompt-summary {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'JetBrains Mono', monospace;
+  max-height: 150px;
+  overflow: hidden;
+  position: relative;
+}
+
+.prompt-summary::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(transparent, var(--card2));
+}
 
 .result-display {
   background: var(--card2);
@@ -351,28 +384,13 @@ header .subtitle {
   font-family: 'JetBrains Mono', monospace;
 }
 
-.prompt-display {
-  background: var(--card2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px;
-  min-height: 200px;
-  max-height: 400px;
-  overflow-y: auto;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family: 'JetBrains Mono', monospace;
-}
-
 .result-actions {
   display: flex;
   gap: 8px;
   margin-top: 16px;
   flex-wrap: wrap;
 }
+
 .result-actions button, .result-actions a {
   flex: 1;
   min-width: 120px;
@@ -391,8 +409,14 @@ header .subtitle {
   align-items: center;
   justify-content: center;
 }
+
 .result-actions button:hover, .result-actions a:hover {
   background: var(--accent2);
+}
+
+.expand-btn {
+  background: var(--accent) !important;
+  color: white !important;
 }
 
 @media (max-width: 1200px) {
@@ -415,7 +439,6 @@ header .subtitle {
 <div class="main-layout">
   <!-- SIDEBAR -->
   <div class="sidebar">
-    <!-- MODE SELECTOR -->
     <div class="sidebar-section">
       <div class="sidebar-label">📋 審核模式</div>
       <div class="mode-tabs">
@@ -424,13 +447,11 @@ header .subtitle {
       </div>
     </div>
 
-    <!-- REPORT TYPE -->
     <div class="sidebar-section">
       <div class="sidebar-label">📊 報告類型</div>
       <div class="type-groups" id="typeGroups"></div>
     </div>
 
-    <!-- UPLOAD -->
     <div class="sidebar-section">
       <div class="sidebar-label">📁 選擇報告</div>
       <div class="upload-zone" id="uploadZone">
@@ -442,7 +463,6 @@ header .subtitle {
       <div id="fileSelected" style="display: none;"></div>
     </div>
 
-    <!-- BACKEND CONFIG -->
     <div class="sidebar-section">
       <div class="sidebar-label">🔌 後端設置</div>
       <div class="field-row">
@@ -451,7 +471,6 @@ header .subtitle {
       </div>
     </div>
 
-    <!-- ANALYZE BUTTON -->
     <div class="sidebar-section">
       <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()" disabled>
         🚀 開始審核
@@ -470,7 +489,6 @@ header .subtitle {
 </div>
 
 <script>
-// ===== 報告類型 =====
 const reportTypes = {
   '📡 電磁相容': [
     { id: 'EMI', name: 'EMI 電磁騷擾', std: 'EN 55032' },
@@ -506,8 +524,8 @@ let currentMode = 'auto';
 let selectedType = 'AUTO';
 let selectedFile = null;
 let analysisController = null;
+let fullPrompt = '';
 
-// ===== 初始化 =====
 function init() {
   renderTypeGroups();
   setupUploadZone();
@@ -627,8 +645,8 @@ async function analyzeAuto() {
   
   mainPanel.innerHTML = `
     <div class="result-container">
-      <div class="scan-header">
-        <div class="scan-title">正在分析報告...</div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--accent);">正在分析報告...</div>
       </div>
       <div class="scan-bar-wrap">
         <div class="scan-bar"></div>
@@ -665,7 +683,7 @@ async function analyzeAuto() {
     if (err.name === 'AbortError') {
       showError('❌ 分析已取消');
     } else {
-      showError(`網路錯誤: ${err.message}`);
+      showError(`錯誤: ${err.message}`);
     }
   }
 }
@@ -709,12 +727,10 @@ function showAutoResult(data) {
   
   mainPanel.innerHTML = `
     <div class="result-container">
-      <div class="scan-header">
-        <div>
-          <div class="result-verdict ${verdictClass}">${verdictText}</div>
-          <div style="font-size: 11px; color: var(--muted);">
-            📄 ${data.filename} | ${new Date(data.timestamp).toLocaleString('zh-TW')}
-          </div>
+      <div style="margin-bottom: 16px;">
+        <div class="result-verdict ${verdictClass}">${verdictText}</div>
+        <div style="font-size: 11px; color: var(--muted);">
+          📄 ${data.filename} | ${new Date(data.timestamp).toLocaleString('zh-TW')}
         </div>
       </div>
       
@@ -731,6 +747,8 @@ function showAutoResult(data) {
 
 function showManualPrompt(prompt) {
   const mainPanel = document.getElementById('mainPanel');
+  fullPrompt = prompt;
+  const summary = prompt.substring(0, 500) + '...';
   
   mainPanel.innerHTML = `
     <div class="result-container">
@@ -739,15 +757,73 @@ function showManualPrompt(prompt) {
         <p style="font-size: 12px; color: var(--muted); margin-bottom: 12px;">請複製下面的 Prompt 到 Claude.ai 中分析報告文本</p>
       </div>
       
-      <div class="prompt-display">${prompt}</div>
+      <div class="prompt-summary">${summary}</div>
       
-      <div class="result-actions">
-        <button onclick="copyPrompt(\`${prompt.replace(/`/g, '\\`')}\`)">📋 複製 Prompt</button>
-        <a href="https://claude.ai" target="_blank">🔗 打開 Claude.ai</a>
+      <div class="result-actions" style="margin-top: 12px;">
+        <button onclick="togglePrompt()">📖 查看完整 Prompt</button>
+        <button onclick="copyPrompt()">📋 複製 Prompt</button>
+      </div>
+      
+      <div id="fullPromptArea" style="display: none; margin-top: 16px;">
+        <div class="result-display">${fullPrompt}</div>
+      </div>
+
+      <div style="margin-top: 20px; padding: 16px; background: var(--card2); border-radius: 8px; border-left: 4px solid var(--accent);">
+        <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 10px;">📋 步驟 2：粘貼 Claude 分析結果</div>
+        <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">在 Claude.ai 中分析報告後，將結果複製並粘貼到下方框中：</p>
+        <textarea class="field-textarea" id="claudeResult" placeholder="粘貼 Claude 的分析結果..."></textarea>
+        <button onclick="processManualResult()" style="width: 100%; margin-top: 10px; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+          ✅ 確認結果並生成報告
+        </button>
+      </div>
+
+      <div class="result-actions" style="margin-top: 16px;">
+        <a href="https://claude.ai" target="_blank" style="background: var(--accent);">🔗 打開 Claude.ai</a>
         <button onclick="startNewAnalysis()">🔄 返回</button>
       </div>
     </div>
   `;
+}
+
+function togglePrompt() {
+  const area = document.getElementById('fullPromptArea');
+  area.style.display = area.style.display === 'none' ? 'block' : 'none';
+}
+
+function copyPrompt() {
+  navigator.clipboard.writeText(fullPrompt).then(() => {
+    alert('✅ Prompt 已複製，請貼到 Claude.ai');
+  });
+}
+
+function processManualResult() {
+  const claudeResult = document.getElementById('claudeResult').value.trim();
+  
+  if (!claudeResult) {
+    alert('❌ 請先粘貼 Claude 的分析結果');
+    return;
+  }
+
+  // 自動判定
+  let verdict = 'PASS';
+  if (claudeResult.toUpperCase().includes('FAIL') && !claudeResult.toUpperCase().includes('CONTRADICTION')) {
+    verdict = 'FAIL';
+  } else if (claudeResult.toUpperCase().includes('WARN')) {
+    verdict = 'WARN';
+  } else if (claudeResult.toUpperCase().includes('CONTRADICTION')) {
+    verdict = 'CONTRADICTION';
+  }
+
+  const data = {
+    filename: selectedFile ? selectedFile.name : 'manual_review.pdf',
+    report_type: selectedType,
+    stage: 'DVT',
+    verdict: verdict,
+    result: claudeResult,
+    timestamp: new Date().toISOString()
+  };
+
+  downloadExcel(data);
 }
 
 function showError(msg) {
@@ -799,12 +875,6 @@ function downloadHTML(data) {
     URL.revokeObjectURL(url);
   })
   .catch(err => alert(`❌ HTML 下載失敗: ${err.message}`));
-}
-
-function copyPrompt(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    alert('✅ Prompt 已複製，請貼到 Claude.ai');
-  });
 }
 
 function cancelAnalysis() {
