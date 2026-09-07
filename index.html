@@ -441,6 +441,46 @@ header .subtitle {
   background: var(--accent2);
 }
 
+.alert-box {
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin: 12px 0;
+  border-left: 4px solid;
+}
+
+.alert-success {
+  background: rgba(112,173,71,0.1);
+  border-left-color: var(--pass);
+  color: var(--pass);
+}
+
+.alert-error {
+  background: rgba(255,0,0,0.1);
+  border-left-color: var(--fail);
+  color: var(--fail);
+}
+
+.alert-info {
+  background: rgba(31,78,120,0.1);
+  border-left-color: var(--accent);
+  color: var(--accent);
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(31,78,120,0.3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 1200px) {
   .sidebar { width: 240px; }
   .main-panel { padding: 16px 20px; }
@@ -546,7 +586,7 @@ let currentMode = 'auto';
 let selectedType = 'AUTO';
 let selectedFile = null;
 let analysisController = null;
-let fullPrompt = '';  // ✅ 保留完整 Prompt
+let fullPrompt = '';
 
 function init() {
   renderTypeGroups();
@@ -769,8 +809,8 @@ function showAutoResult(data) {
 
 function showManualPrompt(prompt) {
   const mainPanel = document.getElementById('mainPanel');
-  fullPrompt = prompt;  // ✅ 保留完整 Prompt
-  const summary = prompt.substring(0, 500) + '...';  // 只用於顯示摘要
+  fullPrompt = prompt;
+  const summary = prompt.substring(0, 500) + '...';
   
   mainPanel.innerHTML = `
     <div class="result-container">
@@ -789,7 +829,6 @@ function showManualPrompt(prompt) {
         <div class="result-display">${fullPrompt}</div>
       </div>
 
-      <!-- ✅ 複製和打開Claude按鈕並排放在一起 -->
       <div class="btn-row">
         <button onclick="copyPrompt()">📋 複製 Prompt</button>
         <a href="https://claude.ai" target="_blank">🔗 打開 Claude.ai</a>
@@ -802,6 +841,7 @@ function showManualPrompt(prompt) {
         <button onclick="processManualResult()" style="width: 100%; margin-top: 10px; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
           ✅ 確認結果並生成報告
         </button>
+        <div id="processStatus" style="display: none; margin-top: 10px;"></div>
       </div>
 
       <div class="result-actions" style="margin-top: 16px;">
@@ -824,11 +864,17 @@ function copyPrompt() {
 
 function processManualResult() {
   const claudeResult = document.getElementById('claudeResult').value.trim();
+  const statusDiv = document.getElementById('processStatus');
   
   if (!claudeResult) {
-    alert('❌ 請先粘貼 Claude 的分析結果');
+    statusDiv.innerHTML = '<div class="alert-box alert-error">❌ 請先粘貼 Claude 的分析結果</div>';
+    statusDiv.style.display = 'block';
     return;
   }
+
+  // 顯示處理中
+  statusDiv.innerHTML = '<div class="alert-box alert-info">⏳ 正在生成報告...</div>';
+  statusDiv.style.display = 'block';
 
   // 自動判定
   let verdict = 'PASS';
@@ -849,18 +895,44 @@ function processManualResult() {
     timestamp: new Date().toISOString()
   };
 
-  downloadExcel(data);
+  // ✅ 調用導出並顯示狀態
+  downloadExcelWithFeedback(data, statusDiv);
 }
 
-function showError(msg) {
-  const mainPanel = document.getElementById('mainPanel');
-  mainPanel.innerHTML = `
-    <div class="result-container">
-      <div style="color: var(--fail); font-weight: 600; margin-bottom: 12px;">❌ 錯誤</div>
-      <div style="color: var(--muted); font-size: 12px; margin-bottom: 16px;">${msg}</div>
-      <button class="analyze-btn" onclick="startNewAnalysis()" style="width: 100%;">🔄 重新開始</button>
-    </div>
-  `;
+function downloadExcelWithFeedback(data, statusDiv) {
+  const backendUrl = document.getElementById('backendUrl').value;
+  
+  fetch(`${backendUrl}/api/export/excel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(res => {
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    return res.blob();
+  })
+  .then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    // ✅ 顯示成功信息
+    statusDiv.innerHTML = `
+      <div class="alert-box alert-success">✅ Excel 已下載！</div>
+      <div style="margin-top: 10px; font-size: 11px; color: var(--muted);">
+        文件名：${a.download}
+      </div>
+    `;
+  })
+  .catch(err => {
+    // ❌ 顯示錯誤信息
+    statusDiv.innerHTML = `<div class="alert-box alert-error">❌ 導出失敗: ${err.message}</div>`;
+  });
 }
 
 function downloadExcel(data) {
@@ -901,6 +973,17 @@ function downloadHTML(data) {
     URL.revokeObjectURL(url);
   })
   .catch(err => alert(`❌ HTML 下載失敗: ${err.message}`));
+}
+
+function showError(msg) {
+  const mainPanel = document.getElementById('mainPanel');
+  mainPanel.innerHTML = `
+    <div class="result-container">
+      <div style="color: var(--fail); font-weight: 600; margin-bottom: 12px;">❌ 錯誤</div>
+      <div style="color: var(--muted); font-size: 12px; margin-bottom: 16px;">${msg}</div>
+      <button class="analyze-btn" onclick="startNewAnalysis()" style="width: 100%;">🔄 重新開始</button>
+    </div>
+  `;
 }
 
 function cancelAnalysis() {
