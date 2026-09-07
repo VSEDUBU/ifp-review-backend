@@ -245,9 +245,28 @@ class ExcelExporter:
         
         row += 1
         
+        # 原始 Prompt (如果有)
+        if 'prompt' in self.data and self.data['prompt']:
+            prompt_section = ws[f'A{row}']
+            prompt_section.value = "📋 原始 Prompt"
+            prompt_section.font = section_font
+            prompt_section.fill = section_fill
+            ws.merge_cells(f'A{row}:B{row}')
+            row += 1
+            
+            prompt_text = self.data.get('prompt', '無')
+            ws[f'A{row}'] = prompt_text
+            ws[f'A{row}'].alignment = Alignment(wrap_text=True, vertical='top')
+            ws[f'A{row}'].border = border
+            ws.merge_cells(f'A{row}:B{row}')
+            ws.row_dimensions[row].height = 300
+            row += 1
+            
+            row += 1
+        
         # 詳細分析
         analysis_section = ws[f'A{row}']
-        analysis_section.value = "📝 詳細分析"
+        analysis_section.value = "📝 Claude 分析結果"
         analysis_section.font = section_font
         analysis_section.fill = section_fill
         ws.merge_cells(f'A{row}:B{row}')
