@@ -3,18 +3,22 @@
 IFP 測試報告自動審核工具 - 後端服務 v5.0 混合模式
 
 支持自動模式（API）和手動模式（Prompt 生成）
+支持 Excel 導出功能
 """
 
 import os
 import json
 import logging
 from datetime import datetime
+from io import BytesIO
 
 import requests
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
 import pdfplumber
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 load_dotenv()
 
@@ -188,6 +192,122 @@ def review_report():
         logger.error(f"審核失敗: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/api/export/excel', methods=['POST'])
+def export_excel():
+    """導出審核結果為 Excel 格式"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'status': 'error', 'message': '缺少數據'}), 400
+        
+        # 創建工作簿
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "審核結果"
+        
+        # 設置列寬
+        ws.column_dimensions['A'].width = 20
+        ws.column_dimensions['B'].width = 60
+        
+        # 定義樣式
+        header_fill = PatternFill(start_color="0066CC", end_color="0066CC", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF", size=12)
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # 標題
+        title_cell = ws['A1']
+        title_cell.value = "IFP 測試報告審核結果"
+        title_cell.font = Font(bold=True, size=14, color="0066CC")
+        ws.merge_cells('A1:B1')
+        
+        # 基本信息
+        row = 3
+        
+        # 報告名稱
+        ws[f'A{row}'] = "報告檔名"
+        ws[f'A{row}'].fill = header_fill
+        ws[f'A{row}'].font = header_font
+        ws[f'B{row}'] = data.get('filename', 'N/A')
+        row += 1
+        
+        # 報告類型
+        ws[f'A{row}'] = "報告類型"
+        ws[f'A{row}'].fill = header_fill
+        ws[f'A{row}'].font = header_font
+        ws[f'B{row}'] = data.get('report_type', 'N/A')
+        row += 1
+        
+        # 項目階段
+        ws[f'A{row}'] = "項目階段"
+        ws[f'A{row}'].fill = header_fill
+        ws[f'A{row}'].font = header_font
+        ws[f'B{row}'] = data.get('stage', 'N/A')
+        row += 1
+        
+        # 最終判定
+        verdict = data.get('verdict', 'UNKNOWN')
+        verdict_text = {
+            'PASS': '✅ 通過',
+            'FAIL': '❌ 失敗',
+            'WARN': '⚠️ 警告',
+            'CONTRADICTION': '🔴 矛盾',
+            'MANUAL_REVIEW': '📋 手動審核'
+        }.get(verdict, verdict)
+        
+        ws[f'A{row}'] = "最終判定"
+        ws[f'A{row}'].fill = header_fill
+        ws[f'A{row}'].font = header_font
+        ws[f'B{row}'] = verdict_text
+        row += 1
+        
+        # 審核時間
+        ws[f'A{row}'] = "審核時間"
+        ws[f'A{row}'].fill = header_fill
+        ws[f'A{row}'].font = header_font
+        ws[f'B{row}'] = data.get('timestamp', 'N/A')
+        row += 1
+        
+        # 詳細分析
+        row += 2
+        ws[f'A{row}'] = "詳細分析結果"
+        ws[f'A{row}'].font = Font(bold=True, size=12, color="0066CC")
+        ws.merge_cells(f'A{row}:B{row}')
+        row += 1
+        
+        # 結果內容（自動換行）
+        result_text = data.get('result', '無')
+        ws[f'A{row}'] = result_text
+        ws[f'A{row}'].alignment = Alignment(wrap_text=True, vertical='top')
+        ws[f'A{row}'].border = border
+        ws.merge_cells(f'A{row}:B{row}')
+        
+        # 調整行高
+        ws.row_dimensions[row].height = 300
+        
+        # 保存到記憶體
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        filename = f"{data.get('filename', 'report').replace('.pdf', '')}_審核結果.xlsx"
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        logger.error(f"Excel 導出失敗: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 @app.route('/api/standards', methods=['GET'])
 def get_standards():
     """獲取支持的報告類型"""
@@ -222,6 +342,7 @@ def get_version():
         'features': [
             'Automatic Mode (with OpenRouter API)',
             'Manual Mode (Generate Prompt)',
+            'Excel Export',
             '27+ Report Types',
             'No Hardcoded Rules',
             'Engineering Risk Assessment'
