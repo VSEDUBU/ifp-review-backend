@@ -109,7 +109,7 @@ header .subtitle {
   border-bottom: 1px solid var(--border);
 }
 
-/* MODE SELECTOR - 新增 */
+/* MODE SELECTOR */
 .mode-tabs {
   display: flex;
   gap: 4px;
@@ -140,7 +140,6 @@ header .subtitle {
   box-shadow: 0 2px 6px rgba(0,102,204,0.2);
 }
 
-/* field row */
 .field-row { display: flex; flex-direction: column; gap: 3px; }
 .field-lbl { font-size: 11px; color: var(--muted); }
 .field-input {
@@ -266,7 +265,6 @@ header .subtitle {
   background: var(--bg);
 }
 
-/* idle state */
 .idle-state {
   flex: 1;
   display: flex;
@@ -277,19 +275,13 @@ header .subtitle {
   opacity: .65;
 }
 
-/* scanning animation */
-.scan-container {
+.result-container {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px 28px;
-  display: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  min-height: 300px;
-  flex-direction: column;
-  gap: 20px;
 }
-.scan-container.active { display: flex; }
 
 .scan-header {
   display: flex; align-items: center;
@@ -297,6 +289,7 @@ header .subtitle {
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
 }
+
 .scan-title {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px; font-weight: 600; color: var(--accent);
@@ -327,16 +320,53 @@ header .subtitle {
   100%{ transform: translateX(350%); }
 }
 
-/* 結果顯示 */
-.result-container {
-  background: var(--card);
+.result-verdict {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.result-verdict.pass { background: var(--pass-bg); color: var(--pass); }
+.result-verdict.fail { background: var(--fail-bg); color: var(--fail); }
+.result-verdict.warn { background: var(--warn-bg); color: var(--warn); }
+
+.result-display {
+  background: var(--card2);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px 28px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border-radius: 8px;
+  padding: 14px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
-/* 手動模式 Prompt 顯示 */
+.result-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+.result-actions button {
+  flex: 1;
+  padding: 10px;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+}
+.result-actions button:hover {
+  background: var(--accent2);
+}
+
 .prompt-display {
   background: var(--card2);
   border: 1px solid var(--border);
@@ -382,7 +412,6 @@ header .subtitle {
   background: var(--accent2);
 }
 
-/* 結果貼上框 */
 .result-paste-box {
   background: var(--card2);
   border: 1.5px dashed var(--border);
@@ -400,53 +429,6 @@ header .subtitle {
   color: var(--text);
   resize: vertical;
   outline: none;
-}
-
-.result-display {
-  background: var(--card2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px;
-  max-height: 400px;
-  overflow-y: auto;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.result-verdict {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 13px;
-  margin-bottom: 12px;
-}
-.result-verdict.pass { background: var(--pass-bg); color: var(--pass); }
-.result-verdict.fail { background: var(--fail-bg); color: var(--fail); }
-.result-verdict.warn { background: var(--warn-bg); color: var(--warn); }
-
-.result-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
-}
-.result-actions button {
-  flex: 1;
-  padding: 10px;
-  background: var(--accent);
-  border: none;
-  border-radius: 6px;
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .2s;
-}
-.result-actions button:hover {
-  background: var(--accent2);
 }
 
 .info-box {
@@ -696,7 +678,6 @@ async function analyzeAuto() {
   const mainPanel = document.getElementById('mainPanel');
   const backendUrl = document.getElementById('backendUrl').value;
   
-  // 顯示掃描動畫
   mainPanel.innerHTML = `
     <div class="scan-container active">
       <div class="scan-header">
@@ -735,7 +716,6 @@ async function analyzeAuto() {
 }
 
 function analyzeManual() {
-  // 生成 Prompt
   const prompt = buildPrompt();
   
   const mainPanel = document.getElementById('mainPanel');
@@ -857,6 +837,7 @@ function showAutoResult(data) {
       
       <div class="result-actions">
         <button onclick="exportHTML(${JSON.stringify(data).replace(/"/g, '&quot;')})">📥 下載 HTML</button>
+        <button onclick="exportExcelAuto(${JSON.stringify(data).replace(/"/g, '&quot;')})">📊 下載 Excel</button>
         <button onclick="startNewAnalysis()">🔄 新建審核</button>
       </div>
     </div>
@@ -880,6 +861,7 @@ function showManualResult(result) {
       
       <div class="result-actions">
         <button onclick="copyResult('${result.replace(/'/g, "\\'")}')">📋 複製結果</button>
+        <button onclick="exportExcelManual('${result.replace(/'/g, "\\'")}')">📊 下載 Excel</button>
         <button onclick="startNewAnalysis()">🔄 新建審核</button>
       </div>
     </div>
@@ -905,6 +887,63 @@ function exportHTML(data) {
   a.href = url;
   a.download = `${data.filename.replace('.pdf', '')}_result.html`;
   a.click();
+}
+
+function exportExcelAuto(data) {
+  const backendUrl = document.getElementById('backendUrl').value || 'http://localhost:5000';
+  
+  fetch(`${backendUrl}/api/export/excel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(res => res.blob())
+  .then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  })
+  .catch(err => {
+    alert(`❌ Excel 下載失敗: ${err.message}`);
+  });
+}
+
+function exportExcelManual(resultText) {
+  const backendUrl = document.getElementById('backendUrl').value || 'http://localhost:5000';
+  
+  const data = {
+    filename: selectedFile ? selectedFile.name : 'report.pdf',
+    report_type: selectedType,
+    stage: 'DVT',
+    verdict: 'MANUAL_REVIEW',
+    result: resultText,
+    timestamp: new Date().toLocaleString('zh-TW')
+  };
+  
+  fetch(`${backendUrl}/api/export/excel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(res => res.blob())
+  .then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  })
+  .catch(err => {
+    alert(`❌ Excel 下載失敗: ${err.message}`);
+  });
 }
 
 function copyResult(text) {
