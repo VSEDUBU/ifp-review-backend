@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-IFP 測試報告自動審核工具 - 企業級後端服務 v6.0
-
-支持多語言、多格式導出、數字簽章、Logo 集成
+IFP 測試報告自動審核工具 - 企業級後端服務 v6.0 (修復版)
 """
 
 import os
@@ -10,7 +8,6 @@ import json
 import logging
 from datetime import datetime
 from io import BytesIO
-from abc import ABC, abstractmethod
 
 import requests
 from flask import Flask, request, jsonify, send_file
@@ -103,6 +100,9 @@ def extract_pdf_text(pdf_file) -> str:
 def call_openrouter_api(system_prompt: str, user_prompt: str) -> str:
     """調用 OpenRouter API"""
     try:
+        if not OPENROUTER_API_KEY:
+            return "❌ 錯誤：OPENROUTER_API_KEY 未設置。請在 Render 環境變數中設置。"
+        
         headers = {
             'Authorization': f'Bearer {OPENROUTER_API_KEY}',
             'Content-Type': 'application/json',
@@ -124,22 +124,17 @@ def call_openrouter_api(system_prompt: str, user_prompt: str) -> str:
         result = response.json()
         if 'choices' in result and len(result['choices']) > 0:
             return result['choices'][0]['message']['content']
-        return ""
+        return "❌ API 返回空結果"
     except Exception as e:
         logger.error(f"API 請求失敗: {str(e)}")
-        return ""
+        return f"❌ API 調用失敗: {str(e)}"
 
 # ===== 報告導出基類 =====
-class ReportExporter(ABC):
+class ReportExporter:
     def __init__(self, data: dict, language: str = 'zh_TW'):
         self.data = data
         self.language = language
         self.lang = LANGUAGES.get(language, LANGUAGES['zh_TW'])
-    
-    @abstractmethod
-    def export(self) -> tuple:
-        """導出報告，返回 (二進制數據, 文件名)"""
-        pass
     
     def get_verdict_text(self, verdict: str) -> str:
         """獲取判定文本"""
@@ -445,13 +440,6 @@ class HTMLExporter(ReportExporter):
                     max-height: 600px;
                     overflow-y: auto;
                 }}
-                .signature-box {{
-                    background: white;
-                    border: 1px solid #ddd;
-                    padding: 15px;
-                    border-radius: 4px;
-                    margin-top: 10px;
-                }}
                 footer {{
                     text-align: center;
                     margin-top: 40px;
@@ -459,10 +447,6 @@ class HTMLExporter(ReportExporter):
                     border-top: 1px solid #ddd;
                     color: #999;
                     font-size: 11px;
-                }}
-                @media print {{
-                    body {{ background: white; }}
-                    .container {{ box-shadow: none; margin: 0; padding: 0; }}
                 }}
             </style>
         </head>
@@ -503,32 +487,6 @@ class HTMLExporter(ReportExporter):
                     <div class="analysis-content">{self.data.get('result', '無')}</div>
                 </div>
 
-                <div class="section">
-                    <div class="section-title">🔐 數字簽章</div>
-                    <div class="signature-box">
-                        <div class="info-row">
-                            <div class="info-label">公司</div>
-                            <div class="info-value">{SIGNATURE_CONFIG['company']}</div>
-                        </div>
-                        <div class="info-row">
-                            <div class="info-label">部門</div>
-                            <div class="info-value">{SIGNATURE_CONFIG['department']}</div>
-                        </div>
-                        <div class="info-row">
-                            <div class="info-label">認證</div>
-                            <div class="info-value">{SIGNATURE_CONFIG['certification']}</div>
-                        </div>
-                        <div class="info-row">
-                            <div class="info-label">聯繫</div>
-                            <div class="info-value">{SIGNATURE_CONFIG['contact']}</div>
-                        </div>
-                        <div class="info-row">
-                            <div class="info-label">簽章時間</div>
-                            <div class="info-value">{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
-                        </div>
-                    </div>
-                </div>
-
                 <footer>
                     <p>{self.lang['generated_by']}</p>
                     <p>{self.lang['internal_use']}</p>
@@ -555,10 +513,12 @@ def index():
 @app.route('/health', methods=['GET'])
 def health_check():
     """健康檢查"""
+    has_api_key = bool(OPENROUTER_API_KEY)
     return jsonify({
-        'status': 'healthy',
+        'status': 'healthy' if has_api_key else 'warning',
         'version': '6.0',
         'enterprise': True,
+        'api_key_configured': has_api_key,
         'features': ['Excel Export', 'HTML Export', 'Multi-language', 'Digital Signature'],
         'timestamp': datetime.now().isoformat()
     })
@@ -619,8 +579,8 @@ def review_report():
 
         result = call_openrouter_api(system_prompt, user_prompt)
 
-        if not result:
-            return jsonify({'status': 'error', 'message': 'API 調用失敗'}), 500
+        if not result or result.startswith("❌"):
+            return jsonify({'status': 'error', 'message': result}), 500
 
         # 自動判定
         verdict = 'PASS'
@@ -643,6 +603,61 @@ def review_report():
 
     except Exception as e:
         logger.error(f"審核失敗: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/generate-prompt', methods=['POST'])
+def generate_prompt():
+    """生成手動模式的 Prompt"""
+    try:
+        data = request.get_json()
+        report_type = data.get('type', 'AUTO')
+        stage = data.get('stage', 'DVT')
+        
+        prompt = f"""【IFP 測試報告 RD 級審核】
+
+你是資深硬體工程師，負責審核 {report_type} 測試報告。
+
+【RD 級審核框架 - 7 步】
+1️⃣ 理解報告 - 標準、版本、補充規範
+2️⃣ 驗證條件 - 環境、工況、樣品代表性
+3️⃣ 檢查數據 - 規格、實測、判定邏輯
+4️⃣ 覆蓋完整性 - 應測項目是否都測了
+5️⃣ 矛盾檢測 - 結論與數據一致性
+6️⃣ 風險評估 - 工程隱患識別
+7️⃣ 最終判定 - PASS / FAIL / WARN / CONTRADICTION
+
+【報告信息】
+- 測試階段：{stage}
+- 報告類型：{report_type}
+- 審核時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+【你的任務】
+請分析下面的測試報告，按照 RD 級框架逐步進行審核。
+生成格式如下：
+
+## 報告基本資訊
+- 採用標準：[標準編號]
+- 測試工況：[環境條件]
+- 樣品數量：[數量]
+
+## 逐項審核
+[詳細檢查每一項]
+
+## 風險評估
+[工程視角的隱患識別]
+
+## 整體判定
+**最終判定：PASS / FAIL / WARN / CONTRADICTION**
+
+【請在下方粘貼報告文本】
+"""
+        
+        return jsonify({
+            'status': 'success',
+            'prompt': prompt
+        })
+    except Exception as e:
+        logger.error(f"生成 Prompt 失敗: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/export/excel', methods=['POST'])
@@ -691,29 +706,6 @@ def export_html():
         logger.error(f"HTML 導出失敗: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app.route('/api/export/format', methods=['GET'])
-def get_export_formats():
-    """獲取支持的導出格式"""
-    return jsonify({
-        'status': 'success',
-        'formats': {
-            'excel': {
-                'name': 'Microsoft Excel (.xlsx)',
-                'description': 'Professional formatted Excel spreadsheet with styling',
-                'features': ['Colored headers', 'Formatted tables', 'Digital signature']
-            },
-            'html': {
-                'name': 'Web Page (.html)',
-                'description': 'Professional HTML report for web viewing and printing',
-                'features': ['Printable', 'Color-coded verdict', 'Responsive design']
-            }
-        },
-        'languages': {
-            'zh_TW': '繁體中文',
-            'en_US': 'English'
-        }
-    })
-
 @app.route('/api/version', methods=['GET'])
 def get_version():
     """獲取版本信息"""
@@ -721,23 +713,6 @@ def get_version():
         'version': '6.0',
         'tier': 'Enterprise',
         'framework': 'RD-Level Hybrid Mode with Multi-format Export',
-        'features': [
-            'Automatic Mode (with OpenRouter API)',
-            'Manual Mode (Generate Prompt)',
-            'Excel Export (Professional)',
-            'HTML Export (Professional)',
-            'Multi-language Support (中文/English)',
-            'Digital Signature',
-            'Company Logo Integration',
-            '27+ Report Types',
-            'No Hardcoded Rules',
-            'Engineering Risk Assessment'
-        ],
-        'deployment': {
-            'backend': 'Flask + Gunicorn',
-            'platform': 'Render.com',
-            'url': 'https://ifp-review-backend.onrender.com'
-        }
     })
 
 if __name__ == '__main__':
