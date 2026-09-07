@@ -414,9 +414,31 @@ header .subtitle {
   background: var(--accent2);
 }
 
-.expand-btn {
-  background: var(--accent) !important;
-  color: white !important;
+.btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn-row button, .btn-row a {
+  flex: 1;
+  padding: 10px;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-row button:hover, .btn-row a:hover {
+  background: var(--accent2);
 }
 
 @media (max-width: 1200px) {
@@ -524,7 +546,7 @@ let currentMode = 'auto';
 let selectedType = 'AUTO';
 let selectedFile = null;
 let analysisController = null;
-let fullPrompt = '';
+let fullPrompt = '';  // ✅ 保留完整 Prompt
 
 function init() {
   renderTypeGroups();
@@ -747,8 +769,8 @@ function showAutoResult(data) {
 
 function showManualPrompt(prompt) {
   const mainPanel = document.getElementById('mainPanel');
-  fullPrompt = prompt;
-  const summary = prompt.substring(0, 500) + '...';
+  fullPrompt = prompt;  // ✅ 保留完整 Prompt
+  const summary = prompt.substring(0, 500) + '...';  // 只用於顯示摘要
   
   mainPanel.innerHTML = `
     <div class="result-container">
@@ -761,11 +783,16 @@ function showManualPrompt(prompt) {
       
       <div class="result-actions" style="margin-top: 12px;">
         <button onclick="togglePrompt()">📖 查看完整 Prompt</button>
-        <button onclick="copyPrompt()">📋 複製 Prompt</button>
       </div>
       
       <div id="fullPromptArea" style="display: none; margin-top: 16px;">
         <div class="result-display">${fullPrompt}</div>
+      </div>
+
+      <!-- ✅ 複製和打開Claude按鈕並排放在一起 -->
+      <div class="btn-row">
+        <button onclick="copyPrompt()">📋 複製 Prompt</button>
+        <a href="https://claude.ai" target="_blank">🔗 打開 Claude.ai</a>
       </div>
 
       <div style="margin-top: 20px; padding: 16px; background: var(--card2); border-radius: 8px; border-left: 4px solid var(--accent);">
@@ -778,7 +805,6 @@ function showManualPrompt(prompt) {
       </div>
 
       <div class="result-actions" style="margin-top: 16px;">
-        <a href="https://claude.ai" target="_blank" style="background: var(--accent);">🔗 打開 Claude.ai</a>
         <button onclick="startNewAnalysis()">🔄 返回</button>
       </div>
     </div>
