@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-IFP 測試報告自動審核工具 - 企業級後端服務 v6.0 (自動模式修復版)
+IFP 測試報告自動審核工具 - 企業級後端服務 v6.0 (最終版)
+支持多 API 源 + 改進錯誤處理
 """
 
 import os
@@ -20,7 +21,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 load_dotenv()
 
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
-OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY')
 FLASK_PORT = int(os.getenv('FLASK_PORT', 5000))
 DEBUG_MODE = os.getenv('DEBUG_MODE', 'False').lower() == 'true'
 
@@ -38,13 +39,6 @@ LANGUAGES = {
         'fail': '❌ 失敗',
         'warn': '⚠️ 警告',
         'contradiction': '🔴 矛盾',
-    },
-    'en_US': {
-        'title': 'IFP Test Report Review Result',
-        'pass': '✅ PASS',
-        'fail': '❌ FAIL',
-        'warn': '⚠️ WARN',
-        'contradiction': '🔴 CONTRADICTION',
     }
 }
 
@@ -52,8 +46,6 @@ LANGUAGES = {
 SIGNATURE_CONFIG = {
     'company': 'CVTE Electronics',
     'department': 'R&D - Hardware Team',
-    'certification': 'ISO 9001:2015 Certified',
-    'contact': 'rd@example.com',
 }
 
 def extract_pdf_text(pdf_file) -> str:
@@ -69,66 +61,89 @@ def extract_pdf_text(pdf_file) -> str:
         return ""
 
 def call_openrouter_api(system_prompt: str, user_prompt: str) -> str:
-    """調用 OpenRouter API - 修復版"""
-    try:
-        if not OPENROUTER_API_KEY:
-            return "❌ 錯誤：OPENROUTER_API_KEY 未設置。請在 Render 環境變數中設置。"
-        
-        # 使用通用的 gpt-3.5-turbo 模型（更穩定）
-        headers = {
-            'Authorization': f'Bearer {OPENROUTER_API_KEY}',
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://ifp-review-backend.onrender.com',
-            'X-Title': 'IFP Test Report Review Tool'
-        }
-
-        data = {
-            'model': 'openai/gpt-3.5-turbo',  # 改用通用模型
-            'messages': [
-                {'role': 'system', 'content': system_prompt},
-                {'role': 'user', 'content': user_prompt}
-            ],
-            'temperature': 0.7,
-            'max_tokens': 2000
-        }
-
-        logger.info(f"調用 API: {data['model']}")
-        
-        response = requests.post(
-            OPENROUTER_API_URL, 
-            json=data, 
-            headers=headers, 
-            timeout=60
-        )
-        
-        logger.info(f"API 響應狀態碼: {response.status_code}")
-        
-        if response.status_code == 404:
-            # 如果 gpt-3.5-turbo 不可用，嘗試 claude-3-haiku
-            logger.warning("gpt-3.5-turbo 不可用，嘗試 claude-3-haiku")
-            data['model'] = 'anthropic/claude-3-haiku'
+    """調用 OpenRouter API - 支持多個模型和自動降級"""
+    
+    if not OPENROUTER_API_KEY:
+        return "❌ 錯誤：OPENROUTER_API_KEY 未設置。\n\n請在 Render 環境變數中添加 OPENROUTER_API_KEY。\n訪問 https://openrouter.ai 獲取 API 密鑰。"
+    
+    # 模型列表（按優先級排序）
+    models = [
+        'openai/gpt-3.5-turbo',      # 第一選擇（便宜）
+        'anthropic/claude-3-haiku',  # 備用（快速）
+        'openai/gpt-4o-mini',        # 備用（高質量）
+    ]
+    
+    headers = {
+        'Authorization': f'Bearer {OPENROUTER_API_KEY}',
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://ifp-review-backend.onrender.com',
+        'X-Title': 'IFP Test Report Review Tool'
+    }
+    
+    for model in models:
+        try:
+            logger.info(f"嘗試模型: {model}")
+            
+            data = {
+                'model': model,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_prompt}
+                ],
+                'temperature': 0.7,
+                'max_tokens': 2000
+            }
+            
             response = requests.post(
-                OPENROUTER_API_URL, 
-                json=data, 
-                headers=headers, 
+                'https://openrouter.ai/api/v1/chat/completions',
+                json=data,
+                headers=headers,
                 timeout=60
             )
-        
-        response.raise_for_status()
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'choices' in result and len(result['choices']) > 0:
+                    logger.info(f"✅ {model} 成功")
+                    return result['choices'][0]['message']['content']
+            
+            elif response.status_code == 402:
+                logger.warning(f"⚠️ {model}: API 額度不足 (402 Payment Required)")
+                continue
+            
+            elif response.status_code == 404:
+                logger.warning(f"⚠️ {model}: 模型不可用 (404)")
+                continue
+            
+            else:
+                logger.warning(f"⚠️ {model}: HTTP {response.status_code}")
+                logger.warning(f"   {response.text[:200]}")
+                continue
+                
+        except requests.exceptions.Timeout:
+            logger.warning(f"⚠️ {model}: 超時")
+            continue
+        except Exception as e:
+            logger.warning(f"⚠️ {model}: {str(e)}")
+            continue
+    
+    # 所有模型都失敗
+    return """❌ API 調用失敗
 
-        result = response.json()
-        if 'choices' in result and len(result['choices']) > 0:
-            return result['choices'][0]['message']['content']
-        
-        logger.error(f"API 返回空結果: {result}")
-        return "❌ API 返回空結果"
-        
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP 錯誤: {e.response.status_code} - {e.response.text}")
-        return f"❌ HTTP 錯誤: {e.response.status_code}"
-    except Exception as e:
-        logger.error(f"API 調用失敗: {str(e)}")
-        return f"❌ API 調用失敗: {str(e)}"
+可能原因：
+1. OpenRouter 賬戶額度不足 (HTTP 402)
+   → 解決：https://openrouter.ai 充值額度
+
+2. API 密鑰配置錯誤
+   → 確認 OPENROUTER_API_KEY 已在 Render 環境變數中設置
+
+3. 所有可用模型都不可用
+   → 請稍後重試或聯繫支持
+
+建議使用手動模式：
+• 複製工具生成的 Prompt
+• 在 Claude.ai 中手動分析
+• 粘貼結果並導出 Excel"""
 
 # ===== Excel 導出 =====
 class ExcelExporter:
@@ -144,7 +159,6 @@ class ExcelExporter:
         ws.column_dimensions['A'].width = 25
         ws.column_dimensions['B'].width = 70
         
-        header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
         title_font = Font(bold=True, size=16, color="1F4E78")
         section_font = Font(bold=True, size=12, color="FFFFFF")
         section_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -267,11 +281,14 @@ def index():
 @app.route('/health', methods=['GET'])
 def health_check():
     """健康檢查"""
-    has_api_key = bool(OPENROUTER_API_KEY)
+    has_openrouter = bool(OPENROUTER_API_KEY)
+    has_claude = bool(CLAUDE_API_KEY)
+    
     return jsonify({
-        'status': 'healthy' if has_api_key else 'warning',
+        'status': 'healthy' if has_openrouter or has_claude else 'warning',
         'version': '6.0',
-        'api_key_configured': has_api_key,
+        'openrouter_configured': has_openrouter,
+        'claude_configured': has_claude,
         'timestamp': datetime.now().isoformat()
     })
 
@@ -319,9 +336,6 @@ def review_report():
 在最後清楚地說明：最終判定：PASS 或 FAIL 或 WARN 或 CONTRADICTION"""
 
         result = call_openrouter_api(system_prompt, user_prompt)
-
-        if result.startswith("❌"):
-            return jsonify({'status': 'error', 'message': result}), 500
 
         # 自動判定
         verdict = 'PASS'
