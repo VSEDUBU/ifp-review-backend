@@ -681,7 +681,7 @@ async function analyzeAuto() {
     
     const data = await response.json();
     if (data.status === 'success') {
-      showAutoResult(data);
+      showAutoResult(data.data);
     } else {
       showError(data.message || '分析失敗');
     }
@@ -762,21 +762,12 @@ function showManualPrompt(prompt) {
       </div>
 
       <div style="margin-top: 20px; padding: 16px; background: var(--card2); border-radius: 8px; border-left: 4px solid var(--accent);">
-        <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 10px;">📋 步驟 2：粘貼結果並下載 Excel</div>
-        <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">在 Claude.ai 中分析報告後，複製完整結果，粘貼到下方，點按鈕即直接下載 Excel：</p>
-        <textarea class="field-textarea" id="claudeResult" placeholder="粘貼 Claude 的完整分析結果..."></textarea>
-        <button onclick="processManualResult()" style="width: 100%; margin-top: 10px; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
-          📥 粘貼結果 → 直接下載 Excel
+        <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 10px;">📋 步驟 2：粘貼 JSON 代碼下載 Excel</div>
+        <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">Claude.ai 會輸出一個 JSON 代碼塊（只有代碼，分析內容不會顯示）。複製這個 JSON 代碼，粘貼到下方，即直接下載 Excel：</p>
+        <textarea class="field-textarea" id="jsonInput" placeholder="粘貼 Claude 輸出的 JSON 代碼塊..."></textarea>
+        <button onclick="generateExcelFromJson()" style="width: 100%; margin-top: 10px; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+          📥 粘貼 JSON → 直接下載 Excel
         </button>
-        
-        <div style="margin-top: 20px; padding: 16px; background: var(--card2); border-radius: 8px; border-left: 4px solid #10b981;">
-          <div style="font-size: 12px; font-weight: 600; color: #10b981; margin-bottom: 10px;">🎯 【新】粘貼 JSON 代碼 → 直接生成 Excel</div>
-          <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">如果 Claude 輸出的是 JSON 格式，直接粘貼到下面生成 Excel：</p>
-          <textarea class="field-textarea" id="jsonInput" placeholder="粘貼 Claude 的 JSON 代碼塊..." style="min-height: 150px;"></textarea>
-          <button onclick="generateExcelFromJson()" style="width: 100%; margin-top: 10px; padding: 10px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
-            ✅ JSON → 直接下載 Excel
-          </button>
-        </div>
       </div>
 
       <div class="result-actions" style="margin-top: 16px;">
@@ -795,52 +786,6 @@ function copyPrompt() {
   navigator.clipboard.writeText(fullPrompt).then(() => {
     alert('✅ Prompt 已複製');
   });
-}
-
-function processManualResult() {
-  const claudeResult = document.getElementById('claudeResult').value.trim();
-  
-  if (!claudeResult) {
-    alert('❌ 請先粘貼 Claude 的分析結果');
-    return;
-  }
-
-  // ✅ 從結構化輸出中提取判定
-  let verdict = 'PASS';
-  const upperResult = claudeResult.toUpperCase();
-  
-  // 查找【最終判定】部分
-  const finalVerdictMatch = claudeResult.match(/【最終判定】\s*\n\s*([A-Z_]+)/);
-  if (finalVerdictMatch) {
-    const extractedVerdict = finalVerdictMatch[1].trim();
-    if (['PASS', 'FAIL', 'WARN', 'CONTRADICTION'].includes(extractedVerdict)) {
-      verdict = extractedVerdict;
-    }
-  } else {
-    // 降級處理：查找關鍵字
-    if (upperResult.includes('CONTRADICTION')) {
-      verdict = 'CONTRADICTION';
-    } else if (upperResult.includes('FAIL')) {
-      verdict = 'FAIL';
-    } else if (upperResult.includes('WARN')) {
-      verdict = 'WARN';
-    } else if (upperResult.includes('PASS')) {
-      verdict = 'PASS';
-    }
-  }
-
-  const data = {
-    filename: selectedFile ? selectedFile.name : 'manual_review.pdf',
-    report_type: selectedType,
-    stage: 'DVT',
-    verdict: verdict,
-    prompt: fullPrompt,
-    result: claudeResult,
-    timestamp: new Date().toISOString()
-  };
-
-  // ✅ 直接下載，不顯示任何內容
-  downloadExcel(data);
 }
 
 function downloadExcel(data) {
