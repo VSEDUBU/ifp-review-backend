@@ -768,6 +768,15 @@ function showManualPrompt(prompt) {
         <button onclick="processManualResult()" style="width: 100%; margin-top: 10px; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
           📥 粘貼結果 → 直接下載 Excel
         </button>
+        
+        <div style="margin-top: 20px; padding: 16px; background: var(--card2); border-radius: 8px; border-left: 4px solid #10b981;">
+          <div style="font-size: 12px; font-weight: 600; color: #10b981; margin-bottom: 10px;">🎯 【新】粘貼 JSON 代碼 → 直接生成 Excel</div>
+          <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">如果 Claude 輸出的是 JSON 格式，直接粘貼到下面生成 Excel：</p>
+          <textarea class="field-textarea" id="jsonInput" placeholder="粘貼 Claude 的 JSON 代碼塊..." style="min-height: 150px;"></textarea>
+          <button onclick="generateExcelFromJson()" style="width: 100%; margin-top: 10px; padding: 10px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+            ✅ JSON → 直接下載 Excel
+          </button>
+        </div>
       </div>
 
       <div class="result-actions" style="margin-top: 16px;">
@@ -892,6 +901,63 @@ function cancelAnalysis() {
 function startNewAnalysis() {
   clearFile();
   location.reload();
+}
+
+function generateExcelFromJson() {
+  const jsonInput = document.getElementById('jsonInput').value.trim();
+  
+  if (!jsonInput) {
+    alert('❌ 請粘貼 JSON 代碼');
+    return;
+  }
+  
+  try {
+    // 提取 JSON 代碼塊
+    const jsonMatch = jsonInput.match(/```json\n?([\s\S]*?)\n?```/) || jsonInput.match(/(\{[\s\S]*\})/);
+    if (!jsonMatch) {
+      alert('❌ 找不到有效的 JSON 代碼');
+      return;
+    }
+    
+    const jsonStr = jsonMatch[1];
+    const data = JSON.parse(jsonStr);
+    
+    // 驗證必要字段
+    if (!data.filename || !data.verdict) {
+      alert('❌ JSON 缺少必要字段 (filename, verdict)');
+      return;
+    }
+    
+    // 發送到後端生成 Excel
+    const backendUrl = document.getElementById('backendUrl').value || 'https://ifp-review-backend.onrender.com';
+    
+    fetch(`${backendUrl}/api/export/excel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    .then(response => {
+      if (!response.ok) throw new Error('Excel 生成失敗');
+      return response.blob();
+    })
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      alert('✅ Excel 已下載！');
+      document.getElementById('jsonInput').value = '';
+    })
+    .catch(error => {
+      alert('❌ 錯誤：' + error.message);
+    });
+    
+  } catch (error) {
+    alert('❌ JSON 格式錯誤：' + error.message);
+  }
 }
 
 function loadSettings() {
