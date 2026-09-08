@@ -1,317 +1,976 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IFP 測試報告審核工具 v9.1</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-        }
-        .header p {
-            margin: 10px 0 0 0;
-            opacity: 0.9;
-            font-size: 14px;
-        }
-        .content {
-            padding: 30px;
-        }
-        .mode-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .mode-btn {
-            padding: 12px 24px;
-            border: 2px solid #ddd;
-            background: white;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        .mode-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-        .mode-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        .section {
-            display: none;
-        }
-        .section.active {
-            display: block;
-        }
-        .field-group {
-            margin-bottom: 20px;
-        }
-        .field-label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #333;
-        }
-        .type-selector {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .type-btn {
-            padding: 10px;
-            border: 2px solid #ddd;
-            background: white;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.3s;
-        }
-        .type-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-        textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 12px;
-            resize: vertical;
-            min-height: 200px;
-            box-sizing: border-box;
-        }
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 14px;
-        }
-        .btn-primary {
-            background: #667eea;
-            color: white;
-            width: 100%;
-            margin-top: 10px;
-        }
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-        .btn-success {
-            background: #10b981;
-            color: white;
-            width: 100%;
-            margin-top: 10px;
-        }
-        .btn-success:hover {
-            background: #059669;
-        }
-        .alert {
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 13px;
-        }
-        .alert-info {
-            background: #dbeafe;
-            color: #1e40af;
-            border-left: 4px solid #3b82f6;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IFP 測試報告審核工具 v6.0 - 企業版</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg:        #F5F7FA;
+  --bg2:       #FFFFFF;
+  --card:      #FFFFFF;
+  --card2:     #F0F4F8;
+  --border:    rgba(0,0,0,0.09);
+  --accent:    #1F4E78;
+  --accent2:   #004FA3;
+  --text:      #1A2433;
+  --muted:     #6B7A8D;
+  --pass:      #70AD47;
+  --fail:      #FF0000;
+  --warn:      #FFC000;
+  --pass-bg:   rgba(112,173,71,0.1);
+  --fail-bg:   rgba(255,0,0,0.1);
+  --warn-bg:   rgba(255,192,0,0.1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  background: var(--bg2);
+  border-bottom: 2px solid var(--accent);
+  padding: 0 28px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.logo-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(31,78,120,0.4);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+header h1 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px; font-weight: 600;
+  letter-spacing: .06em; color: var(--accent);
+}
+
+header .subtitle {
+  font-size: 11px; color: var(--muted);
+  margin-left: 4px;
+}
+
+.hdr-right {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 12px;
+}
+
+.version-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: white;
+  background: var(--accent);
+  padding: 4px 10px; border-radius: 4px;
+}
+
+.main-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px 14px;
+  gap: 16px;
+  box-shadow: 1px 0 4px rgba(0,0,0,0.04);
+}
+
+.sidebar-section { display: flex; flex-direction: column; gap: 8px; }
+
+.sidebar-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 600;
+  color: var(--muted); letter-spacing: .14em;
+  text-transform: uppercase;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--card2);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.mode-tab {
+  flex: 1;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.mode-tab:hover {
+  background: rgba(31,78,120,0.05);
+  color: var(--accent);
+}
+
+.mode-tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  box-shadow: 0 2px 6px rgba(31,78,120,0.2);
+}
+
+.field-row { display: flex; flex-direction: column; gap: 3px; }
+.field-lbl { font-size: 11px; color: var(--muted); }
+.field-input, .field-select, .field-textarea {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; color: var(--text);
+  outline: none;
+  transition: border-color .15s;
+}
+
+.field-input:focus, .field-select:focus, .field-textarea:focus { 
+  border-color: var(--accent); 
+  box-shadow: 0 0 0 2px rgba(31,78,120,0.1); 
+}
+
+.field-textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.upload-zone {
+  border: 1.5px dashed rgba(31,78,120,0.3);
+  border-radius: 10px;
+  padding: 20px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  background: var(--card2);
+  position: relative;
+}
+
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(31,78,120,0.04);
+}
+
+.upload-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+}
+
+.upload-icon { font-size: 24px; margin-bottom: 6px; }
+.upload-text { font-size: 12px; color: var(--text); font-weight: 500; }
+.upload-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+.file-selected {
+  background: rgba(31,78,120,0.05);
+  border: 1px solid rgba(31,78,120,0.2);
+  border-radius: 8px;
+  padding: 9px 11px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px;
+}
+
+.file-selected .fname { 
+  flex: 1; overflow: hidden; text-overflow: ellipsis; 
+  white-space: nowrap; color: var(--text); 
+}
+
+.type-groups { display: flex; flex-direction: column; gap: 6px; }
+
+.type-group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 8px;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.type-group-header:hover { background: #E8EEF5; }
+.type-group-header.open { border-color: var(--accent); background: rgba(31,78,120,0.05); }
+
+.type-group-body {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px 4px 4px 4px;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  background: var(--bg2);
+  margin-top: -1px;
+}
+
+.type-group-header.open + .type-group-body { display: flex; }
+
+.type-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+  width: 100%; text-align: left; font-size: 12px;
+}
+
+.type-item:hover { background: var(--card2); border-color: var(--border); }
+.type-item.active {
+  background: rgba(31,78,120,0.07);
+  border-color: rgba(31,78,120,0.25);
+}
+
+.analyze-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; font-weight: 600;
+  letter-spacing: .06em;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+  box-shadow: 0 2px 8px rgba(31,78,120,0.25);
+}
+
+.analyze-btn:hover:not(:disabled) {
+  background: var(--accent2);
+  box-shadow: 0 4px 14px rgba(31,78,120,0.35);
+}
+
+.analyze-btn:disabled {
+  opacity: .4; cursor: not-allowed; box-shadow: none;
+}
+
+.main-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: var(--bg);
+}
+
+.idle-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  opacity: .65;
+}
+
+.result-container {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.scan-bar-wrap {
+  height: 4px;
+  background: rgba(31,78,120,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.scan-bar {
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: sweep 1.8s ease-in-out infinite;
+  width: 40%;
+}
+
+@keyframes sweep {
+  0%  { transform: translateX(-100%); }
+  100%{ transform: translateX(350%); }
+}
+
+.result-verdict {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.result-verdict.pass { background: var(--pass-bg); color: var(--pass); }
+.result-verdict.fail { background: var(--fail-bg); color: var(--fail); }
+.result-verdict.warn { background: var(--warn-bg); color: var(--warn); }
+
+.prompt-summary {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'JetBrains Mono', monospace;
+  max-height: 150px;
+  overflow: hidden;
+  position: relative;
+}
+
+.prompt-summary::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(transparent, var(--card2));
+}
+
+.result-display {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.result-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.result-actions button, .result-actions a {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+  text-decoration: none;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.result-actions button:hover, .result-actions a:hover {
+  background: var(--accent2);
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn-row button, .btn-row a {
+  flex: 1;
+  padding: 10px;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-row button:hover, .btn-row a:hover {
+  background: var(--accent2);
+}
+
+@media (max-width: 1200px) {
+  .sidebar { width: 240px; }
+  .main-panel { padding: 16px 20px; }
+}
+</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔍 IFP 測試報告審核工具</h1>
-            <p>v9.1 Final - 融合版 RD 7步 + EE Metadata 檢查</p>
-        </div>
-        
-        <div class="content">
-            <div class="mode-tabs">
-                <button class="mode-btn active" onclick="switchMode('manual')">✍️ 手動模式</button>
-            </div>
-            
-            <div id="manualSection" class="section active">
-                <div class="alert alert-info">
-                    📌 流程：1️⃣ 選類型 → 2️⃣ 複製 Prompt → 3️⃣ Claude.ai 分析 → 4️⃣ 複製結果或 JSON → 5️⃣ 粘貼 → 6️⃣ 下載 Excel
-                </div>
-                
-                <div class="field-group">
-                    <label class="field-label">報告類型</label>
-                    <div class="type-selector">
-                        <button class="type-btn active" onclick="selectType('DERATING', this)">Derating 降額</button>
-                        <button class="type-btn" onclick="selectType('SAFETY_IEC62368', this)">安規測試</button>
-                        <button class="type-btn" onclick="selectType('EMI', this)">EMI 騷擾</button>
-                        <button class="type-btn" onclick="selectType('OTHER', this)">其他</button>
-                    </div>
-                </div>
-                
-                <div class="field-group">
-                    <label class="field-label">Step 1: 複製下面 Prompt 到 Claude.ai</label>
-                    <textarea id="promptArea" readonly></textarea>
-                    <button class="btn btn-primary" onclick="copyPrompt()">📋 複製 Prompt</button>
-                    <a href="https://claude.ai" target="_blank" class="btn btn-primary" style="display: block; text-align: center; text-decoration: none; margin-top: 5px;">🔗 打開 Claude.ai</a>
-                </div>
-                
-                <hr style="margin: 30px 0; border: 1px dashed #ddd;">
-                
-                <div class="field-group">
-                    <label class="field-label">Step 2: 粘貼完整分析結果（Markdown 或 JSON）</label>
-                    <textarea id="resultArea" placeholder="粘貼 Claude 的完整結果或 JSON..."></textarea>
-                    <button class="btn btn-success" onclick="generateExcel()">📥 生成 Excel 下載</button>
-                </div>
-                
-                <div style="margin-top: 20px; padding: 16px; background: #f0fdf4; border-left: 4px solid #10b981; border-radius: 6px;">
-                    <div style="font-weight: 600; color: #10b981; margin-bottom: 8px;">💡 快速提示</div>
-                    <p style="margin: 0; font-size: 13px; color: #666;">如果 Claude 直接輸出 JSON 代碼，可直接粘貼。工具會自動識別並生成 Excel。</p>
-                </div>
-            </div>
-        </div>
+
+<header>
+  <div class="logo-dot"></div>
+  <h1>IFP 測試報告審核工具</h1>
+  <span class="subtitle">v6.0 企業版</span>
+  <div class="hdr-right">
+    <span class="version-tag">ENTERPRISE</span>
+  </div>
+</header>
+
+<div class="main-layout">
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">📋 審核模式</div>
+      <div class="mode-tabs">
+        <button class="mode-tab active" onclick="switchMode('auto')">⚡ 自動</button>
+        <button class="mode-tab" onclick="switchMode('manual')">✍️ 手動</button>
+      </div>
     </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">📊 報告類型</div>
+      <div class="type-groups" id="typeGroups"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">📁 選擇報告</div>
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">📄</div>
+        <div class="upload-text">點擊或拖曳上傳</div>
+        <div class="upload-sub">支持 PDF 格式</div>
+        <input type="file" id="fileInput" accept=".pdf">
+      </div>
+      <div id="fileSelected" style="display: none;"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">🔌 後端設置</div>
+      <div class="field-row">
+        <label class="field-lbl">服務 URL</label>
+        <input type="text" class="field-input" id="backendUrl" value="https://ifp-review-backend.onrender.com">
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()" disabled>
+        🚀 開始審核
+      </button>
+    </div>
+  </div>
+
+  <div class="main-panel" id="mainPanel">
+    <div class="idle-state">
+      <div style="font-size: 32px;">📋</div>
+      <div class="idle-title">上傳測試報告開始審核</div>
+      <div style="font-size: 12px; color: var(--muted); margin-top: 8px;">v6.0 企業版 - 支持多格式導出</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const reportTypes = {
+  '📡 電磁相容': [
+    { id: 'EMI', name: 'EMI 電磁騷擾', std: 'EN 55032' },
+    { id: 'EMS', name: 'EMS 電磁抗擾度', std: 'EN 55035' },
+    { id: 'EMC', name: 'EMC 電磁相容', std: '綜合' }
+  ],
+  '🔌 電氣性能': [
+    { id: 'ELEC_PERF', name: '電氣性能測試', std: 'IEC 61000' },
+    { id: 'POWER_SEQ', name: '電源時序測試', std: '企業標準' },
+    { id: 'FREQUENCY', name: '晶振頻偏測試', std: 'GB/T 2423' }
+  ],
+  '📶 訊號完整性': [
+    { id: 'SIGNAL_INT', name: '訊號完整性測試', std: 'USB 3.0' },
+    { id: 'USB', name: 'USB 信號測試', std: 'USB 2.0/3.0' },
+    { id: 'HDMI', name: 'HDMI 信號測試', std: 'HDMI 1.4+' }
+  ],
+  '🌡️ 可靠性環測': [
+    { id: 'RELIABILITY', name: '可靠性試驗', std: 'GB/T 2423' },
+    { id: 'TEMP_RISE', name: '溫升試驗', std: 'IEC 60950' },
+    { id: 'THERMAL', name: '熱測試', std: '企業標準' }
+  ],
+  '⚡ 性能能效': [
+    { id: 'ENERGY', name: '能效測試', std: 'ENERGY STAR' },
+    { id: 'PERFORMANCE', name: '性能測試', std: '企業標準' }
+  ],
+  '📋 設計評估': [
+    { id: 'DERATING', name: 'Derating 降額分析', std: 'MIL-HDBK-217' },
+    { id: 'SAFETY', name: '安規測試', std: 'IEC 62368-1' }
+  ]
+};
+
+let currentMode = 'auto';
+let selectedType = 'AUTO';
+let selectedFile = null;
+let analysisController = null;
+let fullPrompt = '';
+
+function init() {
+  renderTypeGroups();
+  setupUploadZone();
+  loadSettings();
+}
+
+function renderTypeGroups() {
+  const container = document.getElementById('typeGroups');
+  container.innerHTML = '';
+  
+  Object.entries(reportTypes).forEach(([group, items]) => {
+    const groupEl = document.createElement('div');
+    groupEl.className = 'type-group';
     
-    <script>
-        let selectedType = 'DERATING';
-        const backendUrl = 'https://ifp-review-backend.onrender.com';
+    const header = document.createElement('div');
+    header.className = 'type-group-header';
+    header.innerHTML = `
+      <div style="flex: 1;">${group}</div>
+      <div style="color: var(--muted); font-size: 10px;">(${items.length})</div>
+    `;
+    header.onclick = () => {
+      header.classList.toggle('open');
+      body.style.display = header.classList.contains('open') ? 'flex' : 'none';
+    };
+    
+    const body = document.createElement('div');
+    body.className = 'type-group-body';
+    body.innerHTML = items.map(item => `
+      <button class="type-item" onclick="selectType('${item.id}', this)">
+        <span style="font-weight: 600;">${item.name}</span>
+        <span style="font-size: 10px; color: var(--muted); flex: 1; text-align: right;">${item.std}</span>
+      </button>
+    `).join('');
+    
+    groupEl.appendChild(header);
+    groupEl.appendChild(body);
+    container.appendChild(groupEl);
+  });
+}
+
+function selectType(type, el) {
+  document.querySelectorAll('.type-item').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  selectedType = type;
+}
+
+function setupUploadZone() {
+  const zone = document.getElementById('uploadZone');
+  const input = document.getElementById('fileInput');
+  
+  zone.onclick = () => input.click();
+  zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('drag-over'); };
+  zone.ondragleave = () => zone.classList.remove('drag-over');
+  zone.ondrop = (e) => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) {
+      input.files = e.dataTransfer.files;
+      updateFileSelected();
+    }
+  };
+  
+  input.onchange = updateFileSelected;
+}
+
+function updateFileSelected() {
+  const file = document.getElementById('fileInput').files[0];
+  const zone = document.getElementById('uploadZone');
+  const selected = document.getElementById('fileSelected');
+  
+  if (file) {
+    selectedFile = file;
+    zone.style.display = 'none';
+    selected.innerHTML = `
+      <div class="file-selected">
+        <span class="fname">${file.name}</span>
+        <button onclick="clearFile()" style="background: none; border: none; cursor: pointer; color: var(--fail);">✕</button>
+      </div>
+    `;
+    selected.style.display = 'block';
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+}
+
+function clearFile() {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('uploadZone').style.display = 'block';
+  document.getElementById('fileSelected').style.display = 'none';
+  document.getElementById('analyzeBtn').disabled = true;
+}
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function startAnalysis() {
+  if (!selectedFile || !selectedType) return;
+  if (currentMode === 'auto') analyzeAuto();
+  else analyzeManual();
+}
+
+async function analyzeAuto() {
+  const mainPanel = document.getElementById('mainPanel');
+  const backendUrl = document.getElementById('backendUrl').value;
+  
+  analysisController = new AbortController();
+  
+  mainPanel.innerHTML = `
+    <div class="result-container">
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--accent);">正在分析報告...</div>
+      </div>
+      <div class="scan-bar-wrap"><div class="scan-bar"></div></div>
+      <div style="text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px;">
+        調用 AI 模型進行審核<br>
+        <span style="font-size: 11px; opacity: 0.7;">這可能需要 30-60 秒</span>
+      </div>
+      <div style="margin-top: 16px; text-align: center;">
+        <button onclick="cancelAnalysis()" style="padding: 8px 16px; background: #FF6B6B; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">⏹️ 取消分析</button>
+      </div>
+    </div>
+  `;
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('type', selectedType);
+    
+    const response = await fetch(`${backendUrl}/api/review`, {
+      method: 'POST',
+      body: formData,
+      signal: analysisController.signal
+    });
+    
+    const data = await response.json();
+    if (data.status === 'success') {
+      showAutoResult(data);
+    } else {
+      showError(data.message || '分析失敗');
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') showError(`錯誤: ${err.message}`);
+  }
+}
+
+async function analyzeManual() {
+  const mainPanel = document.getElementById('mainPanel');
+  const backendUrl = document.getElementById('backendUrl').value;
+  
+  try {
+    const response = await fetch(`${backendUrl}/api/generate-prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: selectedType, stage: 'DVT' })
+    });
+    
+    const data = await response.json();
+    if (data.status === 'success') {
+      showManualPrompt(data.prompt);
+    } else {
+      showError(data.message || '生成 Prompt 失敗');
+    }
+  } catch (err) {
+    showError(`錯誤: ${err.message}`);
+  }
+}
+
+function showAutoResult(data) {
+  const mainPanel = document.getElementById('mainPanel');
+  const verdict = data.verdict;
+  const verdictClass = verdict.toLowerCase();
+  const verdictText = {'PASS': '✅ 通過', 'FAIL': '❌ 失敗', 'WARN': '⚠️ 警告', 'CONTRADICTION': '🔴 矛盾'}[verdict] || verdict;
+  
+  mainPanel.innerHTML = `
+    <div class="result-container">
+      <div style="margin-bottom: 16px;">
+        <div class="result-verdict ${verdictClass}">${verdictText}</div>
+        <div style="font-size: 11px; color: var(--muted);">📄 ${data.filename} | ${new Date(data.timestamp).toLocaleString('zh-TW')}</div>
+      </div>
+      <div class="result-display">${data.result}</div>
+      <div class="result-actions">
+        <button onclick="downloadExcel(${JSON.stringify(data).replace(/"/g, '&quot;')})">📊 下載 Excel</button>
+        <button onclick="downloadHTML(${JSON.stringify(data).replace(/"/g, '&quot;')})">🌐 下載 HTML</button>
+        <button onclick="startNewAnalysis()">🔄 新建審核</button>
+      </div>
+    </div>
+  `;
+}
+
+function showManualPrompt(prompt) {
+  const mainPanel = document.getElementById('mainPanel');
+  fullPrompt = prompt;
+  const summary = prompt.substring(0, 500) + '...';
+  
+  mainPanel.innerHTML = `
+    <div class="result-container">
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 8px;">📝 手動模式 Prompt（【${selectedType}】）</div>
+        <p style="font-size: 12px; color: var(--muted); margin-bottom: 12px;">請複製下面的 Prompt 到 Claude.ai 中分析報告文本</p>
+      </div>
+      
+      <div class="prompt-summary">${summary}</div>
+      
+      <div class="result-actions" style="margin-top: 12px;">
+        <button onclick="togglePrompt()">📖 查看完整 Prompt</button>
+      </div>
+      
+      <div id="fullPromptArea" style="display: none; margin-top: 16px;">
+        <div class="result-display">${fullPrompt}</div>
+      </div>
+
+      <div class="btn-row">
+        <button onclick="copyPrompt()">📋 複製 Prompt</button>
+        <a href="https://claude.ai" target="_blank">🔗 打開 Claude.ai</a>
+      </div>
+
+      <div style="margin-top: 20px; padding: 16px; background: var(--card2); border-radius: 8px; border-left: 4px solid var(--accent);">
+        <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 10px;">📋 步驟 2：粘貼結果並下載 Excel</div>
+        <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">在 Claude.ai 中分析報告後，複製完整結果，粘貼到下方，點按鈕即直接下載 Excel：</p>
+        <textarea class="field-textarea" id="claudeResult" placeholder="粘貼 Claude 的完整分析結果..."></textarea>
+        <button onclick="processManualResult()" style="width: 100%; margin-top: 10px; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+          📥 粘貼結果 → 直接下載 Excel
+        </button>
         
-        function switchMode(mode) {
-            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(mode + 'Section').classList.add('active');
-            event.target.classList.add('active');
-            if (mode === 'manual') generatePrompt();
-        }
-        
-        function selectType(type, el) {
-            selectedType = type;
-            document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-            el.classList.add('active');
-            generatePrompt();
-        }
-        
-        async function generatePrompt() {
-            try {
-                const response = await fetch(`${backendUrl}/api/generate-prompt`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type: selectedType })
-                });
-                const data = await response.json();
-                if (data.status === 'success') {
-                    document.getElementById('promptArea').value = data.prompt;
-                }
-            } catch (error) {
-                alert('錯誤：' + error.message);
-            }
-        }
-        
-        function copyPrompt() {
-            document.getElementById('promptArea').select();
-            document.execCommand('copy');
-            alert('✅ Prompt 已複製！');
-        }
-        
-        async function generateExcel() {
-            const result = document.getElementById('resultArea').value.trim();
-            
-            if (!result) {
-                alert('❌ 請粘貼結果');
-                return;
-            }
-            
-            try {
-                let data = {};
-                
-                // 嘗試解析 JSON
-                const jsonMatch = result.match(/```json\n?([\s\S]*?)\n?```/) || result.match(/(\{[\s\S]*\})/);
-                if (jsonMatch) {
-                    data = JSON.parse(jsonMatch[1]);
-                } else {
-                    // 如果是 Markdown，自動提取信息
-                    data = {
-                        filename: 'report.pdf',
-                        report_type: selectedType,
-                        verdict: extractVerdict(result),
-                        analysis_process: result,
-                        main_findings: result,
-                        detailed_comments: result,
-                        odm_questions: result,
-                        risk_summary: result
-                    };
-                }
-                
-                // 確保必要字段
-                if (!data.filename) data.filename = 'report.pdf';
-                if (!data.verdict) data.verdict = 'PASS';
-                if (!data.report_type) data.report_type = selectedType;
-                
-                // 發送到後端
-                const response = await fetch(`${backendUrl}/api/export/excel`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                if (!response.ok) throw new Error('Excel 生成失敗');
-                
-                const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
-                document.body.appendChild(a);
-                a.click();
-                URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-                
-                alert('✅ Excel 已下載！');
-                document.getElementById('resultArea').value = '';
-            } catch (error) {
-                alert('❌ 錯誤：' + error.message);
-            }
-        }
-        
-        function extractVerdict(text) {
-            const upper = text.toUpperCase();
-            if (upper.includes('CONTRADICTION')) return 'CONTRADICTION';
-            if (upper.includes('FAIL')) return 'FAIL';
-            if (upper.includes('WARN')) return 'WARN';
-            return 'PASS';
-        }
-        
-        // 初始化
-        generatePrompt();
-    </script>
+        <div style="margin-top: 20px; padding: 16px; background: var(--card2); border-radius: 8px; border-left: 4px solid #10b981;">
+          <div style="font-size: 12px; font-weight: 600; color: #10b981; margin-bottom: 10px;">🎯 【新】粘貼 JSON 代碼 → 直接生成 Excel</div>
+          <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">如果 Claude 輸出的是 JSON 格式，直接粘貼到下面生成 Excel：</p>
+          <textarea class="field-textarea" id="jsonInput" placeholder="粘貼 Claude 的 JSON 代碼塊..." style="min-height: 150px;"></textarea>
+          <button onclick="generateExcelFromJson()" style="width: 100%; margin-top: 10px; padding: 10px; background: #10b981; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+            ✅ JSON → 直接下載 Excel
+          </button>
+        </div>
+      </div>
+
+      <div class="result-actions" style="margin-top: 16px;">
+        <button onclick="startNewAnalysis()">🔄 返回</button>
+      </div>
+    </div>
+  `;
+}
+
+function togglePrompt() {
+  const area = document.getElementById('fullPromptArea');
+  area.style.display = area.style.display === 'none' ? 'block' : 'none';
+}
+
+function copyPrompt() {
+  navigator.clipboard.writeText(fullPrompt).then(() => {
+    alert('✅ Prompt 已複製');
+  });
+}
+
+function processManualResult() {
+  const claudeResult = document.getElementById('claudeResult').value.trim();
+  
+  if (!claudeResult) {
+    alert('❌ 請先粘貼 Claude 的分析結果');
+    return;
+  }
+
+  // ✅ 從結構化輸出中提取判定
+  let verdict = 'PASS';
+  const upperResult = claudeResult.toUpperCase();
+  
+  // 查找【最終判定】部分
+  const finalVerdictMatch = claudeResult.match(/【最終判定】\s*\n\s*([A-Z_]+)/);
+  if (finalVerdictMatch) {
+    const extractedVerdict = finalVerdictMatch[1].trim();
+    if (['PASS', 'FAIL', 'WARN', 'CONTRADICTION'].includes(extractedVerdict)) {
+      verdict = extractedVerdict;
+    }
+  } else {
+    // 降級處理：查找關鍵字
+    if (upperResult.includes('CONTRADICTION')) {
+      verdict = 'CONTRADICTION';
+    } else if (upperResult.includes('FAIL')) {
+      verdict = 'FAIL';
+    } else if (upperResult.includes('WARN')) {
+      verdict = 'WARN';
+    } else if (upperResult.includes('PASS')) {
+      verdict = 'PASS';
+    }
+  }
+
+  const data = {
+    filename: selectedFile ? selectedFile.name : 'manual_review.pdf',
+    report_type: selectedType,
+    stage: 'DVT',
+    verdict: verdict,
+    prompt: fullPrompt,
+    result: claudeResult,
+    timestamp: new Date().toISOString()
+  };
+
+  // ✅ 直接下載，不顯示任何內容
+  downloadExcel(data);
+}
+
+function downloadExcel(data) {
+  const backendUrl = document.getElementById('backendUrl').value;
+  
+  fetch(`${backendUrl}/api/export/excel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(res => res.blob())
+  .then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  })
+  .catch(err => alert(`❌ Excel 下載失敗: ${err.message}`));
+}
+
+function downloadHTML(data) {
+  const backendUrl = document.getElementById('backendUrl').value;
+  
+  fetch(`${backendUrl}/api/export/html`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(res => res.blob())
+  .then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.filename.replace('.pdf', '')}_審核結果.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  })
+  .catch(err => alert(`❌ HTML 下載失敗: ${err.message}`));
+}
+
+function showError(msg) {
+  const mainPanel = document.getElementById('mainPanel');
+  mainPanel.innerHTML = `
+    <div class="result-container">
+      <div style="color: var(--fail); font-weight: 600; margin-bottom: 12px;">❌ 錯誤</div>
+      <div style="color: var(--muted); font-size: 12px; margin-bottom: 16px;">${msg}</div>
+      <button class="analyze-btn" onclick="startNewAnalysis()" style="width: 100%;">🔄 重新開始</button>
+    </div>
+  `;
+}
+
+function cancelAnalysis() {
+  if (analysisController) analysisController.abort();
+}
+
+function startNewAnalysis() {
+  clearFile();
+  location.reload();
+}
+
+function generateExcelFromJson() {
+  const jsonInput = document.getElementById('jsonInput').value.trim();
+  
+  if (!jsonInput) {
+    alert('❌ 請粘貼 JSON 代碼');
+    return;
+  }
+  
+  try {
+    // 提取 JSON 代碼塊
+    const jsonMatch = jsonInput.match(/```json\n?([\s\S]*?)\n?```/) || jsonInput.match(/(\{[\s\S]*\})/);
+    if (!jsonMatch) {
+      alert('❌ 找不到有效的 JSON 代碼');
+      return;
+    }
+    
+    const jsonStr = jsonMatch[1];
+    const data = JSON.parse(jsonStr);
+    
+    // 驗證必要字段
+    if (!data.filename || !data.verdict) {
+      alert('❌ JSON 缺少必要字段 (filename, verdict)');
+      return;
+    }
+    
+    // 發送到後端生成 Excel
+    const backendUrl = document.getElementById('backendUrl').value || 'https://ifp-review-backend.onrender.com';
+    
+    fetch(`${backendUrl}/api/export/excel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    .then(response => {
+      if (!response.ok) throw new Error('Excel 生成失敗');
+      return response.blob();
+    })
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      alert('✅ Excel 已下載！');
+      document.getElementById('jsonInput').value = '';
+    })
+    .catch(error => {
+      alert('❌ 錯誤：' + error.message);
+    });
+    
+  } catch (error) {
+    alert('❌ JSON 格式錯誤：' + error.message);
+  }
+}
+
+function loadSettings() {
+  const saved = localStorage.getItem('ifp_backend_url');
+  if (saved) document.getElementById('backendUrl').value = saved;
+}
+
+window.onbeforeunload = () => {
+  localStorage.setItem('ifp_backend_url', document.getElementById('backendUrl').value);
+};
+
+init();
+</script>
+
 </body>
 </html>
