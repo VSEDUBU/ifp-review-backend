@@ -762,11 +762,11 @@ function showManualPrompt(prompt) {
       </div>
 
       <div style="margin-top: 20px; padding: 16px; background: var(--card2); border-radius: 8px; border-left: 4px solid var(--accent);">
-        <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 10px;">📋 步驟 2：粘貼 Claude 分析結果</div>
-        <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">在 Claude.ai 中分析報告後，將結果複製並粘貼到下方框中，然後點確認即可直接下載 Excel：</p>
-        <textarea class="field-textarea" id="claudeResult" placeholder="粘貼 Claude 的分析結果..."></textarea>
+        <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 10px;">📋 步驟 2：粘貼結果並下載 Excel</div>
+        <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">在 Claude.ai 中分析報告後，複製完整結果，粘貼到下方，點按鈕即直接下載 Excel：</p>
+        <textarea class="field-textarea" id="claudeResult" placeholder="粘貼 Claude 的完整分析結果..."></textarea>
         <button onclick="processManualResult()" style="width: 100%; margin-top: 10px; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
-          ✅ 確認並下載 Excel
+          📥 粘貼結果 → 直接下載 Excel
         </button>
       </div>
 
@@ -796,13 +796,28 @@ function processManualResult() {
     return;
   }
 
+  // ✅ 從結構化輸出中提取判定
   let verdict = 'PASS';
-  if (claudeResult.toUpperCase().includes('FAIL') && !claudeResult.toUpperCase().includes('CONTRADICTION')) {
-    verdict = 'FAIL';
-  } else if (claudeResult.toUpperCase().includes('WARN')) {
-    verdict = 'WARN';
-  } else if (claudeResult.toUpperCase().includes('CONTRADICTION')) {
-    verdict = 'CONTRADICTION';
+  const upperResult = claudeResult.toUpperCase();
+  
+  // 查找【最終判定】部分
+  const finalVerdictMatch = claudeResult.match(/【最終判定】\s*\n\s*([A-Z_]+)/);
+  if (finalVerdictMatch) {
+    const extractedVerdict = finalVerdictMatch[1].trim();
+    if (['PASS', 'FAIL', 'WARN', 'CONTRADICTION'].includes(extractedVerdict)) {
+      verdict = extractedVerdict;
+    }
+  } else {
+    // 降級處理：查找關鍵字
+    if (upperResult.includes('CONTRADICTION')) {
+      verdict = 'CONTRADICTION';
+    } else if (upperResult.includes('FAIL')) {
+      verdict = 'FAIL';
+    } else if (upperResult.includes('WARN')) {
+      verdict = 'WARN';
+    } else if (upperResult.includes('PASS')) {
+      verdict = 'PASS';
+    }
   }
 
   const data = {
@@ -810,12 +825,12 @@ function processManualResult() {
     report_type: selectedType,
     stage: 'DVT',
     verdict: verdict,
-    prompt: fullPrompt,  // ✅ 添加完整 Prompt
+    prompt: fullPrompt,
     result: claudeResult,
     timestamp: new Date().toISOString()
   };
 
-  // ✅ 直接下载，不显示任何内容
+  // ✅ 直接下載，不顯示任何內容
   downloadExcel(data);
 }
 
