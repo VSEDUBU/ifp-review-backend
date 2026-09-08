@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-IFP 測試報告自動審核工具 - 企業級後端服務 v6.0 (最終版)
-支持 Groq 完全免費 API + OpenRouter 備用
+IFP 測試報告自動審核工具 - 企業級後端服務 v7.0
+支持結構化輸出解析
 """
 
 import os
@@ -102,7 +102,7 @@ def call_openrouter_api(system_prompt: str, user_prompt: str) -> str:
     """調用 OpenRouter API - 備用"""
     
     if not OPENROUTER_API_KEY:
-        return "❌ 錯誤：無可用 API\n\n請設置 GROQ_API_KEY 或 OPENROUTER_API_KEY"
+        return "❌ 錯誤：無可用 API"
     
     models = [
         'openai/gpt-3.5-turbo',
@@ -143,10 +143,6 @@ def call_openrouter_api(system_prompt: str, user_prompt: str) -> str:
                 if 'choices' in result and len(result['choices']) > 0:
                     logger.info(f"✅ {model} 成功")
                     return result['choices'][0]['message']['content']
-            
-            elif response.status_code in [402, 404, 429]:
-                logger.warning(f"⚠️ {model}: HTTP {response.status_code}")
-                continue
             else:
                 logger.warning(f"⚠️ {model}: HTTP {response.status_code}")
                 continue
@@ -155,7 +151,7 @@ def call_openrouter_api(system_prompt: str, user_prompt: str) -> str:
             logger.warning(f"⚠️ {model}: {str(e)}")
             continue
     
-    return "❌ 所有 API 都不可用\n\n請檢查 API 密鑰設置"
+    return "❌ 所有 API 都不可用"
 
 class ExcelExporter:
     def __init__(self, data: dict):
@@ -271,7 +267,7 @@ class ExcelExporter:
             row += 1
         
         analysis_section = ws[f'A{row}']
-        analysis_section.value = "📝 Claude 分析結果"
+        analysis_section.value = "📝 詳細分析結果"
         analysis_section.font = section_font
         analysis_section.fill = section_fill
         ws.merge_cells(f'A{row}:B{row}')
@@ -282,7 +278,7 @@ class ExcelExporter:
         ws[f'A{row}'].alignment = Alignment(wrap_text=True, vertical='top')
         ws[f'A{row}'].border = border
         ws.merge_cells(f'A{row}:B{row}')
-        ws.row_dimensions[row].height = 250
+        ws.row_dimensions[row].height = 400
         
         output = BytesIO()
         wb.save(output)
@@ -306,7 +302,7 @@ def health_check():
     
     return jsonify({
         'status': 'healthy' if has_groq or has_openrouter else 'warning',
-        'version': '6.0',
+        'version': '7.0',
         'groq_configured': has_groq,
         'openrouter_configured': has_openrouter,
         'timestamp': datetime.now().isoformat()
@@ -380,6 +376,7 @@ def review_report():
 
 @app.route('/api/generate-prompt', methods=['POST'])
 def generate_prompt():
+    """✅ 生成結構化輸出的 Prompt"""
     try:
         data = request.get_json()
         report_type = data.get('type', 'AUTO')
@@ -406,8 +403,21 @@ def generate_prompt():
 【你的任務】
 請詳細分析下面的測試報告，按照 RD 級框架進行審核。
 
-在分析完後，在最後清楚地寫出：
-**最終判定：PASS / FAIL / WARN / CONTRADICTION**
+【輸出格式 - 請嚴格按照以下格式輸出】
+
+【分析過程】
+[詳細的分析步驟和思考過程]
+
+【主要發現】
+[核心問題或優點]
+
+【詳細評論】
+[完整的評論和建議]
+
+【最終判定】
+PASS 或 FAIL 或 WARN 或 CONTRADICTION
+
+---
 
 【請在下方粘貼報告文本】
 """
@@ -503,7 +513,7 @@ def export_html():
 @app.route('/api/version', methods=['GET'])
 def get_version():
     return jsonify({
-        'version': '6.0',
+        'version': '7.0',
         'tier': 'Enterprise',
         'api': 'Groq Free + OpenRouter Backup'
     })
