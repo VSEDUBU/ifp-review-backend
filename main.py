@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
-"""
-IFP 測試報告自動審核工具 v9.1 Final
-- 手動模式：Prompt 輸出 JSON 代碼，用戶復制粘貼到工具生成 Excel
-- 自動模式：支持 4 個 API
-"""
+"""IFP 測試報告審核工具 v9.4 - 融合 ee-test-report-review"""
 
-import os
-import json
-import logging
+import os, json, logging, requests, re
 from datetime import datetime
 from io import BytesIO
-
-import requests
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -20,14 +12,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 load_dotenv()
-
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
-CEREBRAS_API_KEY = os.getenv('CEREBRАС_API_KEY') or os.getenv('CEREBRAS_API_KEY')
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-
-FLASK_PORT = int(os.getenv('FLASK_PORT', 5000))
-DEBUG_MODE = os.getenv('DEBUG_MODE', 'False').lower() == 'true'
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,142 +21,187 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
 
-# ===== 通用審核框架 - 融合版 =====
-UNIVERSAL_FRAMEWORK = '''【IFP 測試報告審核框架 - 融合版】
+# ===== 通用審核框架 - 融合版 + ee-test-report-review =====
+UNIVERSAL_FRAMEWORK = '''【IFP 測試報告審核框架 - 融合版 RD 7步 + EE Test Report Review】
 
-你是資深硬體工程師，負責審核測試報告。
+你是資深硬體工程師，負責審核 ODM/JDM 提交的 EE（電性工程）測試報告。
+目的：找出報告的格式問題、數據合理性、是否符合標準要求、常見造假手法。
 
-【RD 級審核 - 7 步】
+【核心流程 - RD 7 步】
 
-1️⃣ 理解報告
-   • 識別報告類型：電氣安全(Safety/IEC 62368-1) / EMC/EMI(CISPR 32/35) / 能效(Energy Star/DOE/EU ErP)
-   • 確認適用標準、版本、補充規範
+1️⃣ 識別報告類型
+   • 電性安全 Safety (IEC 62368-1)
+   • EMC/EMI (CISPR 32/35, EN 55032/35)
+   • 能源效率 Energy Efficiency (ENERGY STAR, DOE, EU ErP)
 
-2️⃣ 驗證條件 + Metadata 檢查（ee-test-report-review）
-   • 型號/PN/版本：與送審 BOM 或送測樣品是否一致？
-   • 報告號/日期/頁數：是否完整、有無跳頁或格式突變？
-   • 測試實驗室：是否具備該項目認證（ISO 17025/CNAS/A2LA/CB Scheme）？認證是否在有效期內？
-   • 報告簽署：簽署人、審核人、簽名/章是否完整？
-   • 樣品照片：銘牌 label photo 是否與型號相符？
+2️⃣ 驗證條件 + Metadata 檢查（ee-test-report-review 第一步）
+   【必檢項目 A：基本資訊比對】
+   ✓ 型號/PN/版本：報告封面、內文、樣品照片銘牌、送測編號四者是否完全一致（含大小寫、版本後綴）
+   ✓ 報告編號：格式是否合理、有無塗改痕跡
+   ✓ 日期邏輯：測試日期 < 報告日期 < 提交日期（若不符代表可能移花接木）
+   ✓ 頁碼與格式：頁碼連續、字體/表格風格全篇一致（不一致 = 拼接訊號）
+   ✓ 韌體/軟體版本：與量產規格是否一致
+   
+   【必檢項目 B：實驗室資質】
+   ✓ 是否具 ISO/IEC 17025 認證（或 CB Scheme、CNAS、A2LA）
+   ✓ 認證是否在有效期內
+   ✓ 認證範圍(Scope)是否涵蓋該測試標準 + 產品類別（常見缺漏點）
+   ✓ 若為 ODM 自建實驗室，需說明法規送審時仍需第三方認證
+   
+   【必檢項目 C：簽署與完整性】
+   ✓ Tested by / Reviewed by / Approved by 是否都有簽名或用印
+   ✓ 是否附原始量測數據頁(raw data)而非僅摘要
+   ✓ 是否附設備校驗記錄（過期設備之量測值可信度存疑）
+   ✓ 是否附樣品照片（外觀、銘牌、內部拆解）
+   
+   【常見紅旗】
+   🚩 全篇只有 PASS/FAIL 無實測數值 → 可能套版或隱藏邊界數據
+   🚩 型號報告內前後不一致 → 借用舊報告改標題
+   🚩 標準版本過舊 → 未更新至現行版本
+   🚩 認證證書未附或過期 → 報告證據力不足
+   🚩 字體排版風格不一致 → 可能拼接或篡改
+   🚩 數值極端接近限值但無安全餘裕說明 → 量測不確定度風險
 
-3️⃣ 檢查數據 - 規格、實測、判定邏輯是否一致？
-4️⃣ 覆蓋完整性 - 應測項目是否都測了？
-5️⃣ 矛盾檢測 - 結論與數據一致性？
+3️⃣ 檢查數據 - 規格、實測、判定邏輯是否一致
+   • 務必比對實際量測數值是否落在標準限值內
+   • 不要只看「PASS」字樣就結案
+   • 檢查測試條件是否與實際出貨規格相符
+
+4️⃣ 覆蓋完整性 - 應測項目是否都測了
+   • 缺漏關鍵安全/EMC項目卻給整體 PASS → 報告範疇不完整
+
+5️⃣ 矛盾檢測 - 結論與數據一致性
+   • 封面 PASS 但內文任一項 FAIL → CONTRADICTION
+   • 最惡劣工況未測但聲稱 PASS → 需澄清
+
 6️⃣ 風險評估 + 風險燈號
-   • 🔴 高風險（阻擋簽核）
-   • 🟡 需澄清
-   • 🟢 通過
+   • 🔴 高風險（阻擋簽核）：安全缺陷、實驗室無認證、報告偽造跡象
+   • 🟡 需澄清：邊界不清、測試條件不符、Metadata 缺失
+   • 🟢 通過：數據齊全、符合標準、Metadata 完整
 
 7️⃣ 最終判定 + ODM 追問清單
 
-【重要】你的輸出不是文本，而是 JSON 代碼塊。用戶將復制這個 JSON 到工具中生成 Excel。
-因此，用戶在 Claude.ai 看不到完整分析過程，只能看到 JSON 代碼。
+【JSON 輸出 - 必須遵守】
+❌ 不要創建文件、不要下載、不要詢問、不要生成附件
+❌ 代碼塊前後無任何文字
+✅ 只輸出純文本 JSON
 
-【JSON 輸出格式】
 ```json
 {
   "filename": "[報告檔名]",
   "report_type": "[報告類型]",
-  "verdict": "PASS|FAIL|WARN|CONTRADICTION",
-  "risk_level": "🔴 高風險|🟡 需澄清|🟢 通過",
+  "verdict": "PASS或FAIL或WARN或CONTRADICTION",
+  "risk_level": "🔴或🟡或🟢",
   "analysis_process": "【分析過程】詳細步驟...",
   "main_findings": "【主要發現】核心問題...",
   "detailed_comments": "【詳細評論】完整評論...",
   "odm_questions": "【回覆 ODM 追問清單】\n1. ...\n2. ...",
-  "risk_summary": "【風險等級判定】🟡 條件 PASS...",
-  "important_note": "【重要提醒】本審核為 AI 輔助..."
+  "risk_summary": "【風險等級判定】...",
+  "important_note": "【重要提醒】本審核為 AI 輔助之文件初篩..."
 }
 ```
-
-【說明】
-- 只在 JSON 的 value 中放完整分析內容
-- 用戶看不到分析過程（只看到 JSON 代碼塊）
-- 用戶必須復制這個 JSON 到工具才能查看完整內容並生成 Excel
 '''
 
-# ===== 20種報告類型專用規則 - 完整版 =====
+# ===== 20種報告類型專用規則 - 完整版 - 融合 ee-test-report-review =====
 TYPE_SPECIFIC_RULES = {
-    'EMI': '''【EMI 電磁騷擾規則】EN 55032 Class B
+    'EMI': '''【EMI 電磁騷擾規則】EN 55032 Class B + ee-test-report-review
 
-▶ 報告完整度
-• 若摘要判FAIL，內頁必有對應頻點詳細數據表
+▶ 報告完整度（ee-test-report-review 要點）
+• 是否只有摘要頁無內附原始量測頻譜圖 → WARN
 • 測試工況：是否涵蓋整機最惡劣（最高解析度+滿載周邊）
-• Class A/B誤用：IFP應用Class B（較嚴格）
+• Class A/B誤用：IFP應用 Class B（較嚴格），若用 Class A → WARN
 
-▶ 限值與Margin
+▶ 限值與 Margin（ee-test-report-review 檢查點）
 • 30～230 MHz：QP ≤ 40 dBµV/m
 • 230～1000 MHz：QP ≤ 47 dBµV/m
-• 1～3 GHz：PK ≤ 70 / AV ≤ 50 dBµV/m
-• 3～6 GHz：PK ≤ 74 / AV ≤ 54 dBµV/m
-• 傳導騷擾(CE)：150k～500kHz ≤56 / 0.5M～5MHz ≤66 / 5M～30MHz ≤60 dBµV
+• 測試距離、天線極化(水平/垂直)是否兩者皆做
+• 韌體版本與出貨版本一致否
+
+▶ 常見 ODM 疏漏（ee-test-report-review 已知手法）
+• Worst Case 模式未涵蓋（只測待機）→ WARN
+• 免術語混淆：CE 標誌 DoC（自我聲明）≠ 測試報告 → 需索取原始報告
 
 ▶ 判定
 • Margin < 6 dB → WARN
 • Margin ≤ 0 dB → FAIL
-• 封面PASS但任何頻點超標 → CONTRADICTION''',
+• 封面 PASS 但任何頻點超標 → CONTRADICTION''',
 
-    'EMS': '''【EMS 電磁抗擾度規則】EN 55035 / IEC 61000-4
+    'EMS': '''【EMS 電磁抗擾度規則】EN 55035 / IEC 61000-4 + ee-test-report-review
 
-▶ 報告完整度
+▶ 報告完整度（ee-test-report-review 要點）
 • 必須有逐項測試結果表（ESD/EFT/Surge/CS/Dips各自數據）
-• 僅有等級定義無具體測試結果 → WARN
+• 判定準則(Performance Criteria A/B/C)是否列出
+• 未區分電源線與 I/O 線測試結果 → WARN
 
-▶ 等級定義
+▶ 等級定義與判定準則
 • A：完全正常，無任何降級
 • B：輕微降級（如閃屏），自動恢復
 • C：需手動恢復（重啟）
 • D：無法恢復（硬件損傷）
 
-▶ 各測試項最低要求
-| 項目 | 最低 | PASS條件 |
-| ESD | B | A或B |
-| RS輻射 | A | 僅A |
-| EFT | B | A或B |
-| Surge | B | A或B |
-| CS傳導 | A | 僅A |
-| Dips | C | A/B/C |
+▶ 常見 ODM 疏漏（ee-test-report-review 已知手法）
+• 只做最寬鬆的測試條件 → WARN
+• 無法判斷是否曾出現需人工介入才能恢復的情況 → WARN
 
 ▶ 矛盾檢測
-• 封面PASS但內頁任一項C或D → CONTRADICTION''',
+• 封面 PASS 但內頁任一項 C 或 D → CONTRADICTION''',
 
-    'ELEC': '''【ELEC 電氣性能規則】6個子模塊
+    'SAFETY_IEC62368': '''【SAFETY_IEC62368 安規測試】IEC 62368-1 + ee-test-report-review
 
-▶ 子模塊一：屏時序測試(Panel Timing)
-• T1(Vcc上升)：0.5~10 ms
-• T2(Vcc到CDR)：≥50 ms
-• T3(信號到Vcc關機)：≥0 ms
-• 超出範圍 → FAIL，裕量<10% → WARN
+▶ 報告完整度（ee-test-report-review 要點）
+• 是否仍引用舊標準(60950-1/60065) → WARN（已被 62368-1 取代）
+• 是否標明標準版次 → WARN
+• 額定規格變更後是否複測 → 檢查
+• PS/ES 分類等級是否標示 → WARN
+• 樣品照片(銘牌)是否清晰 → 確認
 
-▶ 子模塊二：開關機時序
-• 各節點 > 100 ms → PASS，< 100 ms → FAIL
+▶ 能量源分類（62368-1 核心邏輯）
+• 是否有做能量源分類章節（ES1/ES2/ES3）
+• 缺此章節 = 高機率套用舊模板未更新 → WARN
 
-▶ 子模塊三：音頻測試
-• THD+N < 3% ✓，SNR ≥ 60dB ✓
+▶ 關鍵量測項目（ee-test-report-review 檢查清單）
+• 介電強度/耐壓：是否附實測漏電流數值；測試電壓與規格是否相符
+• 接地阻抗：是否列出實測電阻值（通常 ≤0.1Ω，含 25-30A 測試電流）
+• 漏電流：測試條件(單一/雙重故障、110%額定電壓)是否註明
+• 爬電距離與電氣間隙：有無實測值對照；PCB 版本與送測樣品一致否
+• 溫升測試：環境溫度、負載條件、高風險零件是否涵蓋
+• 異常狀態測試：僅做部分項目 → WARN；缺元件故障模擬 → WARN
+• 機構防護：UL94 認證文件(黃卡)是否附且未過期
 
-▶ 子模塊四：聲學測試
-• 噪聲 < 25dB(A) ✓；22~25dB → WARN
+▶ 常見 ODM 造假手法（ee-test-report-review 已知）
+• 借用舊報告改標題頁
+• 實驗室未涵蓋認證範圍
+• 測試條件與出貨規格不符
+• 只有 Summary 頁無 Raw Data
+• 簽署與核准頁缺失
 
-▶ 子模塊五：眼圖測試
-• 所有通道PASS → PASS；任一FAIL → FAIL
+▶ 判定
+• 若有上述 🔴 項 → FAIL
+• 缺漏關鍵測項但給 PASS → CONTRADICTION''',
 
-▶ 子模塊六：時鐘數據
-• POWER ON > 0.7×VDD ✓
-• POWER OFF < 0.3×VDD ✓''',
+    'ENERGY_EFFICIENCY': '''【ENERGY_EFFICIENCY 能效測試】ENERGY STAR / EU ErP + ee-test-report-review
 
-    'VOLTAGE_RIPPLE': '''【VOLTAGE_RIPPLE 電壓紋波規則】
+▶ 報告完整度（ee-test-report-review 要點）
+• 是否只有計算結果無原始功率量測數據(raw power meter log) → WARN
+• 功耗造假成本低，比安規/EMC 更需要原始數據佐證
+• 規範版本是否為目的市場現行有效版本 → 需確認或 web search
 
-▶ 直流電壓準確度
-• 在標稱值±5%內 → PASS
-• 超出 → FAIL
-• 裕量<1% → WARN
+▶ 核心量測項（ee-test-report-review 檢查清單）
+• On Mode Power：亮度設定是否為出廠預設（取巧用低亮度測試 → WARN）；測試畫面內容是否符規範指定
+• Sleep Mode Power：網路喚醒/藍芽是否維持出廠預設啟用狀態
+• Off/Standby Power：是否涵蓋所有「準關機」狀態的說明
+• 自動亮度控制/自動關閉：功能是否確實存在於出貨韌體（非僅測試版本）
 
-▶ 紋波(Ripple Vpp)限值
-• 實測 > 限值 → FAIL
-• 實測 > 80%限值 → WARN
+▶ 常見 ODM 疏漏（ee-test-report-review 已知手法）
+• 亮度設定取巧（低於出廠預設）→ WARN
+• 測試畫面非規範指定內容 → WARN
+• 韌體版本與出貨不一致 → WARN
+• 只有 On Mode 無其他兩態 → 報告範疇不完整
+• 規範版本過期（各版本限值可能放寬或收緊）→ WARN
 
-▶ 裕量百分比(必須逐節點計算)
-• 裕量% = (限值-實測值)/限值×100%
-• 裕量% < 10% → WARN''',
+▶ 判定
+• 資料不完整或取巧跡象 → WARN
+• 無法確認與出貨版本一致 → FAIL''',
 
     'DERATING': '''【DERATING 降額分析規則】
 
@@ -192,13 +223,12 @@ TYPE_SPECIFIC_RULES = {
 • ≥ Waste門檻 → FAIL
 
 ▶ 務必逐條檢查
-1. 測試溫度是否為最惡劣工況？
-2. Max Load定義是否涵蓋所有子系統？''',
+1. 測試溫度是否為最惡劣工況
+2. Max Load 定義是否涵蓋所有子系統''',
 
     'CRYSTAL': '''【CRYSTAL 晶振頻偏規則】
 
-▶ 限值以各晶振Datasheet為準
-• 通常 ±20 ppm 或 ±30 ppm
+▶ 限值以各晶振 Datasheet 為準（通常 ±20 ppm 或 ±30 ppm）
 
 ▶ 判定
 • |頻偏| > 規格限值 → FAIL
@@ -207,7 +237,7 @@ TYPE_SPECIFIC_RULES = {
     'PWR_TIMING': '''【PWR_TIMING 電源時序規則】
 
 ▶ 上電/下電
-• 順序必符合SoC/面板規格書
+• 順序必符合 SoC/面板規格書
 • 順序錯誤 → FAIL
 
 ▶ 各節點延遲
@@ -216,61 +246,38 @@ TYPE_SPECIFIC_RULES = {
 
     'USB2_HUB': '''【USB2_HUB USB 2.0 Hub 信號完整性】
 
-▶ Eye Diagram
-• Mask Hits = 0 → PASS
-• 任何 Hits > 0 → FAIL
-
-▶ 差分輸出電壓(HS)
-• 400 mV ≤ VDiff ≤ 600 mV → PASS
-
-▶ 上升/下降時間
-• ≤ 500 ps → PASS
-
+▶ Eye Diagram：Mask Hits = 0 → PASS；任何 Hits > 0 → FAIL
+▶ 差分輸出電壓(HS)：400～600 mV → PASS
+▶ 上升/下降時間：≤ 500 ps → PASS
 ▶ Margin < 10% → WARN''',
 
     'USB2_DEVICE': '''【USB2_DEVICE USB 2.0 Device 信號完整性】
 
-▶ Eye Diagram
-• Mask Hits = 0 → PASS
-• 任何 Hits > 0 → FAIL
-
-▶ 差分輸出電壓(HS)
-• 400 mV ≤ VDiff ≤ 600 mV → PASS
-
-▶ 上升/下降時間
-• ≤ 500 ps → PASS''',
+▶ Eye Diagram：Mask Hits = 0 → PASS；任何 Hits > 0 → FAIL
+▶ 差分輸出電壓(HS)：400～600 mV → PASS
+▶ 上升/下降時間：≤ 500 ps → PASS''',
 
     'USB3_HOST': '''【USB3_HOST USB 3.2 Gen1/Gen2 信號完整性】
 
-▶ Summary Failed
-• = 0 → PASS
-• > 0 → FAIL（即使封面寫Pass → CONTRADICTION）
+▶ Summary Failed = 0 → PASS；> 0 → FAIL
+▶ 5G眼圖規格：Short/Far End DJ ≤ 86 ps；Mask Hits = 0
+▶ 即使封面寫 PASS 但 Summary Failed > 0 → CONTRADICTION''',
 
-▶ LFPS時序規格
-• LFPS差分電壓：800~1200 mV
-• Rise/Fall Time：≤ 4.0 ns
-
-▶ 5G眼圖規格
-• Short/Far End DJ：≤ 86 ps
-• Mask Hits：= 0''',
-
-    'RELIABILITY_CVTE': '''【RELIABILITY_CVTE 可靠性試驗】GB/T 2423或企業標準
+    'RELIABILITY_CVTE': '''【RELIABILITY_CVTE 可靠性試驗】GB/T 2423
 
 ▶ 報告填寫判定
 | 填寫 | 判定 |
 | PASS | PASS |
 | FAIL | FAIL |
-| N/A + 說明 | NA(正常) |
+| N/A + 說明 | 正常 |
 | N/A 無說明 | WARN |
 | 空白 | WARN |
 
-▶ 矛盾檢測(務必逐項核對)
-• 封面PASS但逐項清單任一子項FAIL → CONTRADICTION
-• 封面FAIL但逐項清單全PASS → CONTRADICTION''',
+▶ 矛盾檢測
+• 封面 PASS 但逐項任一 FAIL → CONTRADICTION''',
 
     'DIFF_IMPEDANCE': '''【DIFF_IMPEDANCE 差分阻抗規則】
 
-▶ 規格範圍
 | 介面 | 規格 |
 | HDMI 1.4/2.0 Thru | 85~115 Ω |
 | HDMI 2.0 Term | 90~110 Ω |
@@ -281,12 +288,10 @@ TYPE_SPECIFIC_RULES = {
 • 超出規格 → FAIL
 • 距邊界 < 3Ω → WARN''',
 
-    'TEMP_RISE': '''【TEMP_RISE 溫升試驗】IEC 62368-1 Annex M
+    'TEMP_RISE': '''【TEMP_RISE 溫升試驗】IEC 62368-1
 
 ▶ 報告完整度
-• 是否記錄測試時長？未記錄 → WARN
-• 是否達到溫度穩態？ → 確認
-• 是否記錄測試工況？ → 確認
+• 測試時長、溫度穩態、工況說明是否齊全 → 確認
 
 ▶ 元件溫度限值
 | 元件 | 限值 |
@@ -294,61 +299,46 @@ TYPE_SPECIFIC_RULES = {
 | 電解電容(105°C規格) | ≤ 105°C |
 | 光耦(PC817類) | ≤ 100°C |
 
-▶ 裕量計算方式
+▶ 裕量計算
 • 裕量% = (限值-實測值)/限值×100%
 • 裕量% < 10% → WARN''',
 
-    'SAFETY_IEC62368': '''【SAFETY_IEC62368 IEC 62368-1 安規測試】
+    'ELEC': '''【ELEC 電氣性能規則】
 
-▶ 報告完整度 (Metadata重點)
-• 是否引用已被62368-1取代的舊標準？ → WARN
-• 是否標明標準版次？ → WARN
-• 額定規格(Rating)是否與BOM一致？變更後是否複測？ → 檢查
-• PS/ES等分類等級是否標示？ → WARN
-• 樣品照片(銘牌)是否清晰？ → 確認
+▶ 六個子模塊檢查
+• 屏時序測試：T1/T2/T3 是否在規格範圍；裕量<10% → WARN
+• 開關機時序：各節點 > 100 ms → PASS，< 100 ms → FAIL
+• 音頻測試：THD+N < 3% ✓；SNR ≥ 60dB ✓
+• 聲學測試：噪聲 < 25dB(A) ✓；22~25dB → WARN
+• 眼圖測試：所有通道 PASS → PASS；任一 FAIL → FAIL
+• 時鐘數據：POWER ON > 0.7×VDD；POWER OFF < 0.3×VDD''',
 
-▶ 測試項目與限值
-| 項目 | 規格 |
-| 接觸電流(次級) | < 1 mA |
-| 接觸電流(金屬) | < 3.5 mA |
-| USB埠電流 | < 8 A |
-| 電氣強度 | 3000 VAC |
-| 絕緣電阻 | ≥ 250 MΩ |
-| 接地連續性 | ≤ 0.1 Ω |''',
+    'VOLTAGE_RIPPLE': '''【VOLTAGE_RIPPLE 電壓紋波規則】
 
-    'ENERGY_EFFICIENCY': '''【ENERGY_EFFICIENCY 能效測試】EU 2019/2021 + EU 2019/2013
+▶ 直流電壓準確度
+• 在標稱值±5%內 → PASS
+• 超出 → FAIL
+• 裕量<1% → WARN
 
-▶ EU 2019/2021(待機/關機功耗，強制)
-| 模式 | 限值 |
-| Standby mode | < 0.5 W |
-| Off mode | < 0.3 W |
-| Network standby | < 2.0 W |
+▶ 紋波(Ripple Vpp)
+• 實測 > 限值 → FAIL
+• 實測 > 80%限值 → WARN
 
-▶ Metadata檢查
-• 測試亮度設定是否 = 出廠預設？ → WARN
-• 測試畫面是否為規範指定？ → WARN
-• Peak Luminance Ratio若 < 65% 但標"參考用" → CONTRADICTION
-
-▶ EU 2019/2013(能效標籤，必須檢查)
-• 無論報告標記都必須列出等級
-• F或G級 → WARN
-• D或E級 → WARN''',
+▶ 裕量百分比
+• 裕量% = (限值-實測值)/限值×100%
+• 裕量% < 10% → WARN''',
 
     'OTA_WIRELESS': '''【OTA_WIRELESS OTA 無線性能】CTIA
 
-▶ 規格門檻
 | 頻段 | 參數 | 限值 |
 | WiFi 2.4G/5G | TRP | ≥ 2 dBm |
 | WiFi 2.4G/5G | TIS | ≤ -50 dBm |
 | Bluetooth | TRP | ≥ -6 dBm |
-| Bluetooth | TIS | ≤ -50 dBm |
 
-▶ "未測到"處理
+▶ 「未測到」處理
 • 數值超標 → FAIL
-• "未測到" → WARN(可能測試治具異常)
-
-▶ 法規符合性
-• 報告是否注明對應地區？ → WARN''',
+• 「未測到」無說明 → WARN
+• 報告是否注明對應地區 → WARN''',
 
     'SOFTWARE_FUNCTIONAL': '''【SOFTWARE_FUNCTIONAL 軟體功能測試】
 
@@ -357,49 +347,39 @@ TYPE_SPECIFIC_RULES = {
 | Pass/通過/OK | PASS |
 | Fail/失敗/NG | FAIL |
 | TBD/待確認/N/A(無說明) | WARN |
-| N/A(明確說明) | NA |
 
 ▶ 共因性缺陷聚合
-• 同一故障模式在多個通道重複 → 疑似共因
-• 不要逐條列成N個FAIL，改為聚合說明
+• 同一故障在多通道重複 → 聚合說明，不逐條列為 N 個 FAIL
 
-▶ 缺陷等級與Pass/Fail分離
-• 先列整體Pass/Fail比例
+▶ 缺陷等級與 Pass/Fail 分離
+• 先列整體比例
 • 再獨立列缺陷等級(A級須優先)''',
 
-    'VPC_RELIABILITY': '''【VPC_RELIABILITY VPC 環境可靠性試驗】GB/T 2423或企業標準
+    'VPC_RELIABILITY': '''【VPC_RELIABILITY VPC 環境可靠性試驗】
 
 ▶ 報告結構
-• "產品信息"工作表：多SKU橫向呈現
-• 各環測子表：試驗配置、標準、溫濕條件、檢測項目
+• 「產品信息」：多 SKU 橫向呈現
+• 逐項檢查 PASS/FAIL（ee-test-report-review Metadata 要點）
 
-▶ 判定邏輯
-• 逐一核對每一列PASS/FAIL
-• 矛盾檢測同RELIABILITY_CVTE
-
-▶ 多SKU代表性
-• 不同CPU/主板/BIOS配置是否都有獨立測試？
-• 僅測部分宣稱全部 → WARN''',
+▶ 多 SKU 代表性
+• 不同 CPU/主板/BIOS 配置是否都有獨立測試 → 檢查
+• 僅測部分但宣稱全部 → WARN''',
 
     'VPC_STORAGE_STRESS': '''【VPC_STORAGE_STRESS VPC 硬碟壓力測試】
 
-▶ 報告結構
-• "測試大綱及總結"：統計與缺陷等級
-• "硬碟測試list"：SKU縱向，測項橫向
-
 ▶ 判定邏輯
-• 逐SKU、逐測項核對PASS/FAIL
-• 任一測項FAIL但總結PASS → CONTRADICTION
+• 逐 SKU、逐測項核對 PASS/FAIL
+• 任一測項 FAIL 但總結 PASS → CONTRADICTION
 
 ▶ 儲存元件核心檢查
-1. 判定僅"開機時間"無資料完整性驗證 → WARN
-2. BurnInTest是否列出具體測試項？籠統"PASS" → WARN''',
+• 判定僅「開機時間」無資料完整性驗證 → WARN
+• BurnInTest 是否列出具體項目；籠統「PASS」→ WARN''',
 
     'OTHER': '''【OTHER 自動識別模式】
 
-▶ 從報告標題和測試內容自行判斷類型
+▶ 從報告標題和內容自行判斷類型
 ▶ 套用對應標準審核規則
-▶ 結果開頭說明："識別為 XXX 測試報告，套用 XXX 審核規則。"'''
+▶ 結果開頭說明：「識別為 XXX 測試報告，套用 XXX 審核規則。」'''
 }
 
 def extract_pdf_text(pdf_file) -> str:
@@ -442,84 +422,136 @@ def call_ai_api(system_prompt: str, user_prompt: str) -> str:
             if response.status_code == 200:
                 result = response.json()
                 if 'choices' in result and len(result['choices']) > 0:
-                    logger.info(f"✅ 使用 {name} API")
+                    logger.info(f"✅ {name} API 成功")
                     return result['choices'][0]['message']['content']
         except Exception as e:
-            logger.warning(f"{name} API 失敗: {str(e)}")
-            continue
+            logger.warning(f"{name} API 錯誤: {str(e)}")
     
-    return "❌ 所有 API 都不可用"
+    logger.error("❌ 所有 API 都不可用")
+    return "❌ API 不可用"
 
 class ExcelExporter:
     def __init__(self, data: dict):
         self.data = data
+        self.thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
 
     def export(self) -> tuple:
         wb = Workbook()
         ws = wb.active
         ws.title = "審核結果"
-        ws.column_dimensions['A'].width = 25
-        ws.column_dimensions['B'].width = 70
+        ws.column_dimensions['A'].width = 30
+        ws.column_dimensions['B'].width = 85
         
-        title_font = Font(bold=True, size=16, color="1F4E78")
-        section_font = Font(bold=True, size=12, color="FFFFFF")
-        section_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        # 專業報告格式樣式
+        title_font = Font(bold=True, size=18, color="FFFFFF")
+        title_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+        
+        header_font = Font(bold=True, size=12, color="FFFFFF")
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        
+        subheader_font = Font(bold=True, size=11, color="FFFFFF")
+        subheader_fill = PatternFill(start_color="5B9BD5", end_color="5B9BD5", fill_type="solid")
+        
+        info_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+        info_font = Font(size=11)
+        
+        label_font = Font(bold=True, size=11, color="1F4E78")
+        label_fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
         
         row = 1
+        
+        # 【區塊一】標題
         title_cell = ws[f'A{row}']
         title_cell.value = 'IFP 測試報告審核結果'
         title_cell.font = title_font
+        title_cell.fill = title_fill
+        title_cell.alignment = Alignment(horizontal='center', vertical='center')
         ws.merge_cells(f'A{row}:B{row}')
-        row += 2
+        ws.row_dimensions[row].height = 30
+        row += 1
         
-        # 審核信息
-        section_cell = ws[f'A{row}']
-        section_cell.value = "📋 審核信息"
-        section_cell.font = section_font
-        section_cell.fill = section_fill
+        # 【區塊二】審核信息（摘要）
+        ws[f'A{row}'] = '審核信息'
+        ws[f'A{row}'].font = header_font
+        ws[f'A{row}'].fill = header_fill
         ws.merge_cells(f'A{row}:B{row}')
         row += 1
         
-        info_data = [
+        info_items = [
             ('報告檔名', self.data.get('filename', 'N/A')),
             ('報告類型', self.data.get('report_type', 'N/A')),
             ('審核時間', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-            ('風險燈號', self.data.get('risk_level', 'N/A')),
         ]
         
-        for label, value in info_data:
+        for label, value in info_items:
             ws[f'A{row}'] = label
-            ws[f'A{row}'].font = Font(bold=True, size=11)
-            ws[f'A{row}'].fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+            ws[f'A{row}'].font = label_font
+            ws[f'A{row}'].fill = label_fill
+            ws[f'A{row}'].border = self.thin_border
+            
             ws[f'B{row}'] = value
+            ws[f'B{row}'].font = info_font
+            ws[f'B{row}'].fill = info_fill
+            ws[f'B{row}'].border = self.thin_border
+            ws[f'B{row}'].alignment = Alignment(wrap_text=True, vertical='top')
             row += 1
         
         row += 1
         
-        # 最終判定
+        # 【區塊三】最終判定（突出）
         verdict = self.data.get('verdict', 'UNKNOWN')
-        verdict_color = {"PASS": "70AD47", "FAIL": "FF0000", "WARN": "FFC000", "CONTRADICTION": "FF6600"}.get(verdict, "7F7F7F")
+        risk_level = self.data.get('risk_level', 'N/A')
         
-        result_section = ws[f'A{row}']
-        result_section.value = "📊 最終判定"
-        result_section.font = section_font
-        result_section.fill = section_fill
+        verdict_color = {
+            "PASS": "70AD47",
+            "FAIL": "FF0000",
+            "WARN": "FFC000",
+            "CONTRADICTION": "FF6600"
+        }.get(verdict, "7F7F7F")
+        
+        ws[f'A{row}'] = '最終判定'
+        ws[f'A{row}'].font = header_font
+        ws[f'A{row}'].fill = header_fill
         ws.merge_cells(f'A{row}:B{row}')
         row += 1
         
         verdict_map = {
-            'PASS': '✅ PASS',
-            'FAIL': '❌ FAIL',
-            'WARN': '⚠️ WARN',
-            'CONTRADICTION': '🔴 CONTRADICTION',
+            'PASS': '✅ PASS - 通過',
+            'FAIL': '❌ FAIL - 不通過',
+            'WARN': '⚠️ WARN - 需澄清',
+            'CONTRADICTION': '🔴 CONTRADICTION - 矛盾',
         }
+        
+        ws[f'A{row}'] = '判定'
+        ws[f'A{row}'].font = label_font
+        ws[f'A{row}'].fill = label_fill
+        ws[f'A{row}'].border = self.thin_border
         
         ws[f'B{row}'] = verdict_map.get(verdict, verdict)
         ws[f'B{row}'].font = Font(bold=True, size=12, color="FFFFFF")
         ws[f'B{row}'].fill = PatternFill(start_color=verdict_color, end_color=verdict_color, fill_type="solid")
+        ws[f'B{row}'].border = self.thin_border
+        ws[f'B{row}'].alignment = Alignment(horizontal='center', vertical='center')
+        row += 1
+        
+        ws[f'A{row}'] = '風險燈號'
+        ws[f'A{row}'].font = label_font
+        ws[f'A{row}'].fill = label_fill
+        ws[f'A{row}'].border = self.thin_border
+        
+        ws[f'B{row}'] = risk_level
+        ws[f'B{row}'].font = Font(bold=True, size=11)
+        ws[f'B{row}'].fill = info_fill
+        ws[f'B{row}'].border = self.thin_border
+        ws[f'B{row}'].alignment = Alignment(horizontal='center', vertical='center')
         row += 2
         
-        # 分析內容
+        # 【區塊四】分析內容（分章節）
         sections = [
             ('分析過程', 'analysis_process'),
             ('主要發現', 'main_findings'),
@@ -530,19 +562,30 @@ class ExcelExporter:
         ]
         
         for section_title, section_key in sections:
-            section_cell = ws[f'A{row}']
-            section_cell.value = f"📝 {section_title}"
-            section_cell.font = section_font
-            section_cell.fill = section_fill
+            # 章節標題
+            ws[f'A{row}'] = f'【{section_title}】'
+            ws[f'A{row}'].font = subheader_font
+            ws[f'A{row}'].fill = subheader_fill
             ws.merge_cells(f'A{row}:B{row}')
+            ws[f'A{row}'].border = self.thin_border
             row += 1
             
+            # 內容
             content = self.data.get(section_key, '')
             ws[f'A{row}'] = content
+            ws[f'A{row}'].font = Font(size=10)
             ws[f'A{row}'].alignment = Alignment(wrap_text=True, vertical='top')
+            ws[f'A{row}'].border = self.thin_border
             ws.merge_cells(f'A{row}:B{row}')
-            ws.row_dimensions[row].height = 200
-            row += 2
+            ws.row_dimensions[row].height = min(300, max(50, len(str(content)) // 20))
+            row += 1
+            row += 1
+        
+        # 設置列寬自適應
+        for row_cells in ws.iter_rows():
+            for cell in row_cells:
+                if cell.value:
+                    cell.alignment = Alignment(wrap_text=True, vertical='top')
         
         output = BytesIO()
         wb.save(output)
@@ -556,62 +599,36 @@ def index():
     try:
         with open('index.html', 'r', encoding='utf-8') as f:
             return f.read()
-    except FileNotFoundError:
-        return "前端文件未找到", 500
+    except:
+        return "前端未找到", 500
 
 @app.route('/health', methods=['GET'])
-def health_check():
-    return jsonify({
-        'status': 'healthy',
-        'version': '9.1-Final',
-        'groq_configured': bool(GROQ_API_KEY),
-        'openrouter_configured': bool(OPENROUTER_API_KEY),
-        'timestamp': datetime.now().isoformat()
-    })
+def health():
+    return jsonify({'status': 'ok', 'version': '9.4-Merged'})
 
 @app.route('/api/generate-prompt', methods=['POST'])
-def generate_prompt():
-    try:
-        data = request.get_json()
-        report_type = data.get('type', 'OTHER')
-        stage = data.get('stage', 'DVT')
-        
-        type_rules = TYPE_SPECIFIC_RULES.get(report_type, TYPE_SPECIFIC_RULES['OTHER'])
-        
-        prompt = f'''{UNIVERSAL_FRAMEWORK}
+def gen_prompt():
+    data = request.get_json()
+    report_type = data.get('type', 'OTHER')
+    stage = data.get('stage', 'DVT')
+    
+    type_rules = TYPE_SPECIFIC_RULES.get(report_type, TYPE_SPECIFIC_RULES['OTHER'])
+    
+    prompt = f'''{UNIVERSAL_FRAMEWORK}
 
 【測試階段】{stage}
 【報告類型】{report_type}
 
-【報告類型專用審核規則】
+【{report_type} 專用審核規則】
 
 {type_rules}
 
 ---
 
-【請在下方粘貼報告文本】
+【請粘貼報告文本】
 '''
-        
-        return jsonify({'status': 'success', 'prompt': prompt})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-@app.route('/api/export/excel', methods=['POST'])
-def export_excel():
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'status': 'error', 'message': '缺少數據'}), 400
-        exporter = ExcelExporter(data)
-        content, filename = exporter.export()
-        return send_file(
-            BytesIO(content),
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=filename
-        )
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+    return jsonify({'status': 'success', 'prompt': prompt})
 
 @app.route('/api/review', methods=['POST'])
 def review():
@@ -635,7 +652,7 @@ def review():
         
         system_prompt = f'''{UNIVERSAL_FRAMEWORK}
 
-【報告類型專用規則】
+【{report_type} 專用規則】
 {type_rules}
 
 請簡潔分析報告。'''
@@ -647,7 +664,7 @@ def review():
 
 {pdf_text[:8000]}
 
-最後說明：最終判定：PASS 或 FAIL 或 WARN 或 CONTRADICTION"""
+最後明確說明最終判定：PASS 或 FAIL 或 WARN 或 CONTRADICTION"""
 
         result = call_ai_api(system_prompt, user_prompt)
         
@@ -667,22 +684,41 @@ def review():
                 'report_type': report_type,
                 'stage': stage,
                 'verdict': verdict,
-                'result': result,
+                'analysis_process': result,
+                'main_findings': result,
+                'detailed_comments': result,
+                'odm_questions': result,
+                'risk_summary': result,
+                'risk_level': {'PASS': '🟢', 'FAIL': '🔴', 'WARN': '🟡', 'CONTRADICTION': '🔴'}.get(verdict, '🟢'),
                 'timestamp': datetime.now().isoformat()
             }
         })
     
     except Exception as e:
+        logger.error(f"分析錯誤: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app.route('/api/version', methods=['GET'])
-def get_version():
-    return jsonify({
-        'version': '9.1-Final',
-        'mode': '手動模式：JSON 代碼 → 工具生成 Excel',
-        'framework': 'Merged RD 7-Step + EE-Test-Report-Review'
-    })
+@app.route('/api/export/excel', methods=['POST'])
+def export():
+    data = request.get_json() or {}
+    
+    safe_data = {
+        'filename': data.get('filename', 'report.pdf'),
+        'report_type': data.get('report_type', 'OTHER'),
+        'verdict': data.get('verdict', 'PASS'),
+        'risk_level': data.get('risk_level', '🟢'),
+        'analysis_process': data.get('analysis_process', ''),
+        'main_findings': data.get('main_findings', ''),
+        'detailed_comments': data.get('detailed_comments', ''),
+        'odm_questions': data.get('odm_questions', ''),
+        'risk_summary': data.get('risk_summary', ''),
+        'important_note': data.get('important_note', '本審核為 AI 輔助之文件初篩，不能取代具資格 EE 工程師的技術判定。'),
+    }
+    
+    exporter = ExcelExporter(safe_data)
+    content, filename = exporter.export()
+    return send_file(BytesIO(content), mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=filename)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=FLASK_PORT, debug=DEBUG_MODE)
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=False)
 
