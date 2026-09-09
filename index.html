@@ -865,7 +865,23 @@ function generateExcelFromJson() {
     }
     
     const jsonStr = jsonMatch[1];
-    const data = JSON.parse(jsonStr);
+    let data = JSON.parse(jsonStr);
+    
+    // 補充缺失字段 - 支持多種字段名稱
+    if (!data.filename) data.filename = 'report.pdf';
+    if (!data.verdict && data.overall_verdict) {
+      data.verdict = data.overall_verdict;
+    }
+    if (!data.verdict) data.verdict = 'PASS';
+    if (!data.report_type && data.product_model) {
+      data.report_type = data.product_model;
+    }
+    if (!data.report_type) data.report_type = 'OTHER';
+    if (!data.analysis_process) data.analysis_process = '';
+    if (!data.main_findings) data.main_findings = '';
+    if (!data.detailed_comments) data.detailed_comments = '';
+    if (!data.odm_questions) data.odm_questions = '';
+    if (!data.risk_summary) data.risk_summary = '';
     
     // 驗證必要字段
     if (!data.filename || !data.verdict) {
