@@ -78,19 +78,37 @@ UNIVERSAL_FRAMEWORK = '''【IFP 測試報告審核框架 - 融合版 RD 7步 + E
 ❌ 不要輸出 JSON、不要輸出文本分析
 ✅ 直接在 Artifact 中生成可下載的 Excel 文件
 
-使用方法：
-1. 在 Claude.ai 中分析報告
-2. Claude 在 Artifact 中創建 HTML 工具
-3. HTML 工具使用 SheetJS 庫直接生成專業格式 Excel
-4. 用戶點擊「📥 下載 Excel」按鈕
-5. Excel 文件直接下載到本地 ✅
+【實現方式】
+1. 創建 HTML Artifact
+2. 引入 SheetJS 庫（CDN：https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js）
+3. 使用 JavaScript 生成 Excel 文件
+4. 提供【📥 下載 Excel】按鈕，點擊直接下載
+
+【HTML Artifact 代碼框架 - Claude 請直接使用此框架】
+請在 Artifact 中創建一個 HTML 頁面，包含：
+- SheetJS 庫的 CDN 引入
+- 用戶界面顯示報告基本信息、最終判定、風險燈號
+- JavaScript 函數將分析結果生成 Excel 並下載
+- 按鈕點擊直接下載為 Excel 文件
+
+【實現細節】
+- 使用 XLSX.utils.aoa_to_sheet() 將數據轉換為 Excel 工作表
+- 使用 XLSX.writeFile() 直接下載文件
+- 文件名格式：[報告名]_審核結果.xlsx
+- 支持長文本自動換行顯示
+
+【Claude 作業】
+完成報告分析後：
+1. 創建上述 HTML Artifact
+2. 填入你的分析結果數據
+3. 用戶在 Artifact 中點擊【📥 下載 Excel】直接下載
 
 Excel 格式要求：
-- 標題突出（大字、藍色背景）
-- 審核信息表格化（灰色背景、清晰標籤）
-- 最終判定彩色警示（PASS 綠、FAIL 紅、WARN 黃、CONTRADICTION 橙）
-- 分章節內容（小標題、段落清晰、無內容擠壓）
-- 所有表格邊框清晰、對齐規範'''
+- 標題突出
+- 審核信息表格化
+- 最終判定彩色警示
+- 分章節內容清晰
+- 邊框清晰、對齐規範'''
 
 # ===== 20種報告類型專用規則 - 完整版 - 融合 ee-test-report-review =====
 TYPE_SPECIFIC_RULES = {
