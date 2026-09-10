@@ -74,46 +74,23 @@ UNIVERSAL_FRAMEWORK = '''【IFP 測試報告審核框架 - 融合版 RD 7步 + E
 
 7️⃣ 最終判定 + ODM 追問清單
 
-【JSON 輸出 - 必須遵守】
-❌ 不要創建文件、不要下載、不要詢問、不要生成附件
-❌ 代碼塊前後無任何文字
-✅ 只輸出純文本 JSON
+【直接生成 Excel - Claude.ai Artifact】
+❌ 不要輸出 JSON、不要輸出文本分析
+✅ 直接在 Artifact 中生成可下載的 Excel 文件
 
-```json
-{
-  "filename": "[報告檔名]",
-  "report_type": "[報告類型]",
-  "verdict": "PASS或FAIL或WARN或CONTRADICTION",
-  "risk_level": "🔴或🟡或🟢",
-  "analysis_process": "【分析過程】詳細步驟...",
-  "main_findings": "【主要發現】核心問題...",
-  "detailed_comments": "【詳細評論】完整評論...",
-  "odm_questions": "【回覆 ODM 追問清單】\n1. ...\n2. ...",
-  "risk_summary": "【風險等級判定】...",
-  "important_note": "【重要提醒】本審核為 AI 輔助之文件初篩..."
-}
-```
+使用方法：
+1. 在 Claude.ai 中分析報告
+2. Claude 在 Artifact 中創建 HTML 工具
+3. HTML 工具使用 SheetJS 庫直接生成專業格式 Excel
+4. 用戶點擊「📥 下載 Excel」按鈕
+5. Excel 文件直接下載到本地 ✅
 
-【Claude.ai 專用 - 直接生成 Excel】
-用戶將使用你生成的 JSON 數據，在 Claude.ai 上用 Python openpyxl 代碼直接生成可下載的 Excel 文件。
-格式需求：
+Excel 格式要求：
 - 標題突出（大字、藍色背景）
-- 審核信息區（表格化、灰色背景）
-- 最終判定區（彩色警示、加粗）
+- 審核信息表格化（灰色背景、清晰標籤）
+- 最終判定彩色警示（PASS 綠、FAIL 紅、WARN 黃、CONTRADICTION 橙）
 - 分章節內容（小標題、段落清晰、無內容擠壓）
-- 所有表格邊框清晰、對齐規範
-
-【最後輸出流程】
-1. 輸出完整 JSON 數據（純文本代碼塊）
-2. 在後面提供一個 Python 脚本模板，用戶可以直接在本地運行
-3. 腳本會使用 JSON 數據，用 openpyxl 生成專業格式的 Excel 文件
-
-Python 腳本模板說明：
-- 需要 openpyxl、datetime 模塊
-- 用戶將 JSON 數據複製到 Python 腳本中的 data 變量
-- 執行腳本後直接生成 .xlsx 文件到當前目錄
-- 文件名格式：[報告名]_審核結果.xlsx
-'''
+- 所有表格邊框清晰、對齐規範'''
 
 # ===== 20種報告類型專用規則 - 完整版 - 融合 ee-test-report-review =====
 TYPE_SPECIFIC_RULES = {
