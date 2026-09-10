@@ -93,6 +93,26 @@ UNIVERSAL_FRAMEWORK = '''【IFP 測試報告審核框架 - 融合版 RD 7步 + E
   "important_note": "【重要提醒】本審核為 AI 輔助之文件初篩..."
 }
 ```
+
+【Claude.ai 專用 - 直接生成 Excel】
+用戶將使用你生成的 JSON 數據，在 Claude.ai 上用 Python openpyxl 代碼直接生成可下載的 Excel 文件。
+格式需求：
+- 標題突出（大字、藍色背景）
+- 審核信息區（表格化、灰色背景）
+- 最終判定區（彩色警示、加粗）
+- 分章節內容（小標題、段落清晰、無內容擠壓）
+- 所有表格邊框清晰、對齐規範
+
+【最後輸出流程】
+1. 輸出完整 JSON 數據（純文本代碼塊）
+2. 在後面提供一個 Python 脚本模板，用戶可以直接在本地運行
+3. 腳本會使用 JSON 數據，用 openpyxl 生成專業格式的 Excel 文件
+
+Python 腳本模板說明：
+- 需要 openpyxl、datetime 模塊
+- 用戶將 JSON 數據複製到 Python 腳本中的 data 變量
+- 執行腳本後直接生成 .xlsx 文件到當前目錄
+- 文件名格式：[報告名]_審核結果.xlsx
 '''
 
 # ===== 20種報告類型專用規則 - 完整版 - 融合 ee-test-report-review =====
@@ -432,28 +452,54 @@ class ExcelExporter:
             bottom=Side(style='thin')
         )
 
+    def split_content(self, text: str, max_width: int = 80) -> list:
+        """將長文本按段落分割，保留換行符"""
+        if not text:
+            return ['']
+        lines = text.split('\n')
+        result = []
+        for line in lines:
+            if len(line) > max_width:
+                # 按字符長度分割
+                for i in range(0, len(line), max_width):
+                    result.append(line[i:i+max_width])
+            else:
+                result.append(line)
+        return result if result else ['']
+
     def export(self) -> tuple:
         wb = Workbook()
         ws = wb.active
         ws.title = "審核結果"
-        ws.column_dimensions['A'].width = 30
-        ws.column_dimensions['B'].width = 85
         
-        # 專業報告格式樣式
-        title_font = Font(bold=True, size=18, color="FFFFFF")
+        # 設置列寬
+        ws.column_dimensions['A'].width = 25
+        ws.column_dimensions['B'].width = 90
+        
+        # 樣式定義
+        title_font = Font(bold=True, size=16, color="FFFFFF")
         title_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
         
         header_font = Font(bold=True, size=12, color="FFFFFF")
         header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
         
-        subheader_font = Font(bold=True, size=11, color="FFFFFF")
-        subheader_fill = PatternFill(start_color="5B9BD5", end_color="5B9BD5", fill_type="solid")
-        
-        info_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
-        info_font = Font(size=11)
+        subheader_font = Font(bold=True, size=11, color="1F4E78")
+        subheader_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
         
         label_font = Font(bold=True, size=11, color="1F4E78")
         label_fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+        
+        content_font = Font(size=10)
+        
+        verdict = self.data.get('verdict', 'UNKNOWN')
+        risk_level = self.data.get('risk_level', 'N/A')
+        
+        verdict_color = {
+            "PASS": "70AD47",
+            "FAIL": "FF0000",
+            "WARN": "FFC000",
+            "CONTRADICTION": "FF6600"
+        }.get(verdict, "7F7F7F")
         
         row = 1
         
@@ -464,14 +510,16 @@ class ExcelExporter:
         title_cell.fill = title_fill
         title_cell.alignment = Alignment(horizontal='center', vertical='center')
         ws.merge_cells(f'A{row}:B{row}')
-        ws.row_dimensions[row].height = 30
+        ws.row_dimensions[row].height = 28
+        row += 1
         row += 1
         
-        # 【區塊二】審核信息（摘要）
-        ws[f'A{row}'] = '審核信息'
+        # 【區塊二】基本信息
+        ws[f'A{row}'] = '基本信息'
         ws[f'A{row}'].font = header_font
         ws[f'A{row}'].fill = header_fill
         ws.merge_cells(f'A{row}:B{row}')
+        ws.row_dimensions[row].height = 20
         row += 1
         
         info_items = [
@@ -485,31 +533,23 @@ class ExcelExporter:
             ws[f'A{row}'].font = label_font
             ws[f'A{row}'].fill = label_fill
             ws[f'A{row}'].border = self.thin_border
+            ws[f'A{row}'].alignment = Alignment(horizontal='left', vertical='center')
             
             ws[f'B{row}'] = value
-            ws[f'B{row}'].font = info_font
-            ws[f'B{row}'].fill = info_fill
+            ws[f'B{row}'].font = content_font
             ws[f'B{row}'].border = self.thin_border
-            ws[f'B{row}'].alignment = Alignment(wrap_text=True, vertical='top')
+            ws[f'B{row}'].alignment = Alignment(wrap_text=True, vertical='center')
+            ws.row_dimensions[row].height = 20
             row += 1
         
         row += 1
         
-        # 【區塊三】最終判定（突出）
-        verdict = self.data.get('verdict', 'UNKNOWN')
-        risk_level = self.data.get('risk_level', 'N/A')
-        
-        verdict_color = {
-            "PASS": "70AD47",
-            "FAIL": "FF0000",
-            "WARN": "FFC000",
-            "CONTRADICTION": "FF6600"
-        }.get(verdict, "7F7F7F")
-        
+        # 【區塊三】最終判定
         ws[f'A{row}'] = '最終判定'
         ws[f'A{row}'].font = header_font
         ws[f'A{row}'].fill = header_fill
         ws.merge_cells(f'A{row}:B{row}')
+        ws.row_dimensions[row].height = 20
         row += 1
         
         verdict_map = {
@@ -523,27 +563,30 @@ class ExcelExporter:
         ws[f'A{row}'].font = label_font
         ws[f'A{row}'].fill = label_fill
         ws[f'A{row}'].border = self.thin_border
+        ws[f'A{row}'].alignment = Alignment(horizontal='left', vertical='center')
         
         ws[f'B{row}'] = verdict_map.get(verdict, verdict)
         ws[f'B{row}'].font = Font(bold=True, size=12, color="FFFFFF")
         ws[f'B{row}'].fill = PatternFill(start_color=verdict_color, end_color=verdict_color, fill_type="solid")
         ws[f'B{row}'].border = self.thin_border
         ws[f'B{row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws.row_dimensions[row].height = 22
         row += 1
         
         ws[f'A{row}'] = '風險燈號'
         ws[f'A{row}'].font = label_font
         ws[f'A{row}'].fill = label_fill
         ws[f'A{row}'].border = self.thin_border
+        ws[f'A{row}'].alignment = Alignment(horizontal='left', vertical='center')
         
         ws[f'B{row}'] = risk_level
         ws[f'B{row}'].font = Font(bold=True, size=11)
-        ws[f'B{row}'].fill = info_fill
         ws[f'B{row}'].border = self.thin_border
         ws[f'B{row}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws.row_dimensions[row].height = 20
         row += 2
         
-        # 【區塊四】分析內容（分章節）
+        # 【區塊四】詳細內容 - 按段落分割顯示
         sections = [
             ('分析過程', 'analysis_process'),
             ('主要發現', 'main_findings'),
@@ -558,26 +601,32 @@ class ExcelExporter:
             ws[f'A{row}'] = f'【{section_title}】'
             ws[f'A{row}'].font = subheader_font
             ws[f'A{row}'].fill = subheader_fill
-            ws.merge_cells(f'A{row}:B{row}')
             ws[f'A{row}'].border = self.thin_border
+            ws.merge_cells(f'A{row}:B{row}')
+            ws.row_dimensions[row].height = 20
             row += 1
             
-            # 內容
+            # 內容 - 按行分割
             content = self.data.get(section_key, '')
-            ws[f'A{row}'] = content
-            ws[f'A{row}'].font = Font(size=10)
-            ws[f'A{row}'].alignment = Alignment(wrap_text=True, vertical='top')
-            ws[f'A{row}'].border = self.thin_border
-            ws.merge_cells(f'A{row}:B{row}')
-            ws.row_dimensions[row].height = min(300, max(50, len(str(content)) // 20))
+            if content:
+                # 分割成多行，每行為一個 cell
+                lines = self.split_content(content, max_width=85)
+                for idx, line in enumerate(lines):
+                    ws[f'A{row}'] = '' if idx > 0 else ''  # 第一行空，後面行也空
+                    ws[f'B{row}'] = line
+                    ws[f'B{row}'].font = content_font
+                    ws[f'B{row}'].border = self.thin_border
+                    ws[f'B{row}'].alignment = Alignment(wrap_text=False, vertical='top')
+                    ws.row_dimensions[row].height = 18
+                    row += 1
+            else:
+                ws[f'B{row}'] = '(無)'
+                ws[f'B{row}'].font = Font(size=10, italic=True, color="999999")
+                ws[f'B{row}'].border = self.thin_border
+                ws.row_dimensions[row].height = 18
+                row += 1
+            
             row += 1
-            row += 1
-        
-        # 設置列寬自適應
-        for row_cells in ws.iter_rows():
-            for cell in row_cells:
-                if cell.value:
-                    cell.alignment = Alignment(wrap_text=True, vertical='top')
         
         output = BytesIO()
         wb.save(output)
