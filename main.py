@@ -72,65 +72,197 @@ UNIVERSAL_FRAMEWORK = '''【IFP 測試報告審核框架 - 融合版】
 - ❌ 代碼塊後面不要有任何文字
 - ✅ 只輸出純文本 JSON
 
-【直接生成 Excel - Claude.ai Artifact】
-不要輸出任何分析文本，直接在 Artifact 創建可下載的 Excel 文件。
-
-【Claude 務必複製以下完整代碼到 Artifact】
-
-```html
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
-        h1 { color: white; background: #1F4E78; padding: 20px; border-radius: 6px; }
-        button { padding: 12px 24px; background: #4472C4; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; width: 100%; margin-top: 20px; }
-        button:hover { background: #2F5496; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📋 IFP 測試報告審核結果</h1>
-        <p id="info"></p>
-        <button onclick="downloadExcel()">📥 下載 Excel 審核報告</button>
-    </div>
-    <script>
-        const data = { filename: "[報告檔名]", report_type: "[報告類型]", verdict: "[PASS]", risk_level: "[🟢]", analysis_process: "[分析過程]", main_findings: "[主要發現]", detailed_comments: "[詳細評論]", odm_questions: "[ODM追問]", risk_summary: "[風險判定]", important_note: "[重要提醒]" };
-        document.getElementById('info').innerHTML = `<strong>報告：</strong> ${data.filename}<br><strong>類型：</strong> ${data.report_type}<br><strong>判定：</strong> ${data.verdict}`;
-        function downloadExcel() {
-            try {
-                const wb = XLSX.utils.book_new();
-                const ws = XLSX.utils.aoa_to_sheet([['IFP 測試報告審核結果'], [], ['報告檔名', data.filename], ['報告類型', data.report_type], ['最終判定', data.verdict], ['風險燈號', data.risk_level], [], ['分析過程'], [data.analysis_process], [], ['主要發現'], [data.main_findings], [], ['詳細評論'], [data.detailed_comments], [], ['ODM追問'], [data.odm_questions], [], ['風險判定'], [data.risk_summary], [], ['重要提醒'], [data.important_note]]);
-                ws['!cols'] = [{wch: 25}, {wch: 100}];
-                XLSX.utils.book_append_sheet(wb, ws, "審核結果");
-                
-                // 使用 Blob 方式下载
-                const wbout = XLSX.write(wb, {bookType: 'xlsx', type: 'array'});
-                const blob = new Blob([wbout], {type: 'application/octet-stream'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = data.filename.replace('.pdf', '') + '_審核結果.xlsx';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            } catch (error) {
-                alert('下載失敗：' + error.message);
-            }
-        }
-    </script>
-</body>
-</html>
-```
+【直接生成 Excel - 本地 Python 腳本】
+分析完報告後，直接在 Artifact 中生成一個完整的 Python 腳本。
+用戶複製腳本，在本地運行：python script.py，即可生成 Excel 文件。
 
 【Claude 的工作】
-1. 複製上面的 HTML 到 Artifact
-2. 分析後填入 const data 中的各欄位
-3. 用戶點擊【📥 下載 Excel 審核報告】直接下載
+1. 分析報告
+2. 在 Artifact 中創建 Python 腳本（包含所有數據 + openpyxl 代碼）
+3. 腳本可直接執行，生成 [報告名]_審核結果.xlsx
+
+【Python 腳本框架】
+```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from datetime import datetime
+
+# ===== Claude 填入以下數據 =====
+data = {
+    "filename": "[報告檔名]",
+    "report_type": "[報告類型]",
+    "verdict": "[PASS/FAIL/WARN/CONTRADICTION]",
+    "risk_level": "[🔴/🟡/🟢]",
+    "analysis_process": "[【分析過程】...]",
+    "main_findings": "[【主要發現】...]",
+    "detailed_comments": "[【詳細評論】...]",
+    "odm_questions": "[【ODM 追問清單】...]",
+    "risk_summary": "[【風險等級判定】...]",
+    "important_note": "[【重要提醒】...]"
+}
+# ===== 以上為 Claude 需填入的數據 =====
+
+def create_excel():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "審核結果"
+    ws.column_dimensions['A'].width = 25
+    ws.column_dimensions['B'].width = 100
+    
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    title_font = Font(bold=True, size=16, color="FFFFFF")
+    title_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+    
+    header_font = Font(bold=True, size=12, color="FFFFFF")
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    
+    subheader_font = Font(bold=True, size=11, color="1F4E78")
+    subheader_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+    
+    label_font = Font(bold=True, size=11, color="1F4E78")
+    label_fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+    
+    content_font = Font(size=10)
+    
+    verdict_colors = {
+        "PASS": "70AD47",
+        "FAIL": "FF0000",
+        "WARN": "FFC000",
+        "CONTRADICTION": "FF6600"
+    }
+    
+    verdict_color = verdict_colors.get(data["verdict"], "7F7F7F")
+    
+    row = 1
+    
+    # 標題
+    ws[f'A{row}'] = 'IFP 測試報告審核結果'
+    ws[f'A{row}'].font = title_font
+    ws[f'A{row}'].fill = title_fill
+    ws[f'A{row}'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.merge_cells(f'A{row}:B{row}')
+    ws.row_dimensions[row].height = 28
+    row += 2
+    
+    # 基本信息
+    ws[f'A{row}'] = '基本信息'
+    ws[f'A{row}'].font = header_font
+    ws[f'A{row}'].fill = header_fill
+    ws.merge_cells(f'A{row}:B{row}')
+    ws.row_dimensions[row].height = 20
+    row += 1
+    
+    info_items = [
+        ('報告檔名', data['filename']),
+        ('報告類型', data['report_type']),
+        ('審核時間', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+    ]
+    
+    for label, value in info_items:
+        ws[f'A{row}'] = label
+        ws[f'A{row}'].font = label_font
+        ws[f'A{row}'].fill = label_fill
+        ws[f'A{row}'].border = thin_border
+        ws[f'B{row}'] = value
+        ws[f'B{row}'].font = content_font
+        ws[f'B{row}'].border = thin_border
+        ws[f'B{row}'].alignment = Alignment(wrap_text=True, vertical='center')
+        ws.row_dimensions[row].height = 20
+        row += 1
+    
+    row += 1
+    
+    # 最終判定
+    ws[f'A{row}'] = '最終判定'
+    ws[f'A{row}'].font = header_font
+    ws[f'A{row}'].fill = header_fill
+    ws.merge_cells(f'A{row}:B{row}')
+    ws.row_dimensions[row].height = 20
+    row += 1
+    
+    verdict_map = {
+        'PASS': '✅ PASS - 通過',
+        'FAIL': '❌ FAIL - 不通過',
+        'WARN': '⚠️ WARN - 需澄清',
+        'CONTRADICTION': '🔴 CONTRADICTION - 矛盾',
+    }
+    
+    ws[f'A{row}'] = '判定'
+    ws[f'A{row}'].font = label_font
+    ws[f'A{row}'].fill = label_fill
+    ws[f'A{row}'].border = thin_border
+    ws[f'B{row}'] = verdict_map.get(data['verdict'], data['verdict'])
+    ws[f'B{row}'].font = Font(bold=True, size=12, color="FFFFFF")
+    ws[f'B{row}'].fill = PatternFill(start_color=verdict_color, end_color=verdict_color, fill_type="solid")
+    ws[f'B{row}'].border = thin_border
+    ws[f'B{row}'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[row].height = 22
+    row += 1
+    
+    ws[f'A{row}'] = '風險燈號'
+    ws[f'A{row}'].font = label_font
+    ws[f'A{row}'].fill = label_fill
+    ws[f'A{row}'].border = thin_border
+    ws[f'B{row}'] = data['risk_level']
+    ws[f'B{row}'].font = Font(bold=True, size=11)
+    ws[f'B{row}'].border = thin_border
+    ws[f'B{row}'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[row].height = 20
+    row += 2
+    
+    # 分章節內容
+    sections = [
+        ('分析過程', 'analysis_process'),
+        ('主要發現', 'main_findings'),
+        ('詳細評論', 'detailed_comments'),
+        ('ODM 追問清單', 'odm_questions'),
+        ('風險等級判定', 'risk_summary'),
+        ('重要提醒', 'important_note'),
+    ]
+    
+    for section_title, section_key in sections:
+        ws[f'A{row}'] = f'【{section_title}】'
+        ws[f'A{row}'].font = subheader_font
+        ws[f'A{row}'].fill = subheader_fill
+        ws[f'A{row}'].border = thin_border
+        ws.merge_cells(f'A{row}:B{row}')
+        ws.row_dimensions[row].height = 20
+        row += 1
+        
+        content = data.get(section_key, '')
+        ws[f'A{row}'] = content
+        ws[f'A{row}'].font = content_font
+        ws[f'A{row}'].border = thin_border
+        ws[f'A{row}'].alignment = Alignment(wrap_text=True, vertical='top')
+        ws.merge_cells(f'A{row}:B{row}')
+        ws.row_dimensions[row].height = max(50, len(str(content)) // 30)
+        row += 2
+    
+    filename = data['filename'].replace('.pdf', '') + '_審核結果.xlsx'
+    wb.save(filename)
+    print(f'✅ Excel 報告已生成：{filename}')
+
+if __name__ == '__main__':
+    create_excel()
+```
+
+【使用方法】
+1. 在 Claude.ai 中複製上面的 Python 腳本
+2. 在本地創建 script.py 文件，粘貼代碼
+3. 運行：python script.py
+4. Excel 文件生成到當前目錄
+
+【需要的庫】
+pip install openpyxl
 '''
 
 # ===== 20種報告類型專用規則 - 完整版 =====
