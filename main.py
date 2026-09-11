@@ -101,11 +101,26 @@ UNIVERSAL_FRAMEWORK = '''【IFP 測試報告審核框架 - 融合版】
         const data = { filename: "[報告檔名]", report_type: "[報告類型]", verdict: "[PASS]", risk_level: "[🟢]", analysis_process: "[分析過程]", main_findings: "[主要發現]", detailed_comments: "[詳細評論]", odm_questions: "[ODM追問]", risk_summary: "[風險判定]", important_note: "[重要提醒]" };
         document.getElementById('info').innerHTML = `<strong>報告：</strong> ${data.filename}<br><strong>類型：</strong> ${data.report_type}<br><strong>判定：</strong> ${data.verdict}`;
         function downloadExcel() {
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet([['IFP 測試報告審核結果'], [], ['報告檔名', data.filename], ['報告類型', data.report_type], ['最終判定', data.verdict], ['風險燈號', data.risk_level], [], ['分析過程'], [data.analysis_process], [], ['主要發現'], [data.main_findings], [], ['詳細評論'], [data.detailed_comments], [], ['ODM追問'], [data.odm_questions], [], ['風險判定'], [data.risk_summary], [], ['重要提醒'], [data.important_note]]);
-            ws['!cols'] = [{wch: 25}, {wch: 100}];
-            XLSX.utils.book_append_sheet(wb, ws, "審核結果");
-            XLSX.writeFile(wb, data.filename.replace('.pdf', '') + '_審核結果.xlsx');
+            try {
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet([['IFP 測試報告審核結果'], [], ['報告檔名', data.filename], ['報告類型', data.report_type], ['最終判定', data.verdict], ['風險燈號', data.risk_level], [], ['分析過程'], [data.analysis_process], [], ['主要發現'], [data.main_findings], [], ['詳細評論'], [data.detailed_comments], [], ['ODM追問'], [data.odm_questions], [], ['風險判定'], [data.risk_summary], [], ['重要提醒'], [data.important_note]]);
+                ws['!cols'] = [{wch: 25}, {wch: 100}];
+                XLSX.utils.book_append_sheet(wb, ws, "審核結果");
+                
+                // 使用 Blob 方式下载
+                const wbout = XLSX.write(wb, {bookType: 'xlsx', type: 'array'});
+                const blob = new Blob([wbout], {type: 'application/octet-stream'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = data.filename.replace('.pdf', '') + '_審核結果.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                alert('下載失敗：' + error.message);
+            }
         }
     </script>
 </body>
