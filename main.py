@@ -72,37 +72,40 @@ UNIVERSAL_FRAMEWORK = '''【IFP 測試報告審核框架 - 融合版】
 - ❌ 代碼塊後面不要有任何文字
 - ✅ 只輸出純文本 JSON
 
-【必須直接在 Claude.ai 生成可下載的 Excel】
+【強制流程 - 分析完必須立即執行 Code Execution】
 
-❌ 不要輸出分析文本
-❌ 不要生成 HTML
-❌ 不要生成 Python 腳本
-✅ 必須執行 Code Execution（執行 Python 代碼）
-✅ 必須直接生成 Excel 文件
-✅ Claude.ai 會自動提供下載鏈接
+❌ 不准輸出 JSON
+❌ 不准輸出分析文本
+❌ 不准輸出任何解釋
+✅ 分析完報告後立即執行 Python Code Execution
+✅ Code Execution 生成 Excel 文件
+✅ Excel 文件直接可下載
 
-【Claude 必須做的事】
-1. 分析報告
-2. 執行下面的 Python 代碼（使用 Code Execution）
-3. Excel 文件會直接生成並可下載
+【强制步驟】
+1. 接收報告
+2. 使用提示詞規則進行分析（內部分析，不輸出）
+3. 立即執行下面的 Python 代碼（Code Execution）
+4. Excel 文件生成完成
+5. 停止，不再輸出任何東西
 
-【必須執行的 Python 代碼】
+【必須執行的完整 Python 代碼 - 分析完後立即運行】
 ```python
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from datetime import datetime
 
-data = {
-    "filename": "[報告檔名]",
-    "report_type": "[報告類型]",
-    "verdict": "[PASS/FAIL/WARN/CONTRADICTION]",
-    "risk_level": "[🔴/🟡/🟢]",
-    "analysis_process": "[【分析過程】...]",
-    "main_findings": "[【主要發現】...]",
-    "detailed_comments": "[【詳細評論】...]",
-    "odm_questions": "[【ODM 追問清單】...]",
-    "risk_summary": "[【風險等級判定】...]",
-    "important_note": "[【重要提醒】...]"
+# Claude 必須在這裡填入分析結果
+analysis_data = {
+    "filename": "報告檔名",
+    "report_type": "報告類型", 
+    "verdict": "PASS/FAIL/WARN/CONTRADICTION",
+    "risk_level": "🟢/🟡/🔴",
+    "analysis_process": "【分析過程】完整分析內容",
+    "main_findings": "【主要發現】完整內容",
+    "detailed_comments": "【詳細評論】完整內容",
+    "odm_questions": "【ODM追問清單】完整內容",
+    "risk_summary": "【風險等級判定】完整內容",
+    "important_note": "【重要提醒】完整內容"
 }
 
 wb = Workbook()
@@ -120,10 +123,9 @@ label_font = Font(bold=True, size=11, color="1F4E78")
 label_fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
 subheader_font = Font(bold=True, size=11, color="1F4E78")
 subheader_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
-content_font = Font(size=10)
 
 verdict_colors = {"PASS": "70AD47", "FAIL": "FF0000", "WARN": "FFC000", "CONTRADICTION": "FF6600"}
-verdict_color = verdict_colors.get(data["verdict"], "7F7F7F")
+verdict_color = verdict_colors.get(analysis_data["verdict"], "7F7F7F")
 
 row = 1
 ws[f'A{row}'] = 'IFP 測試報告審核結果'
@@ -140,13 +142,13 @@ ws[f'A{row}'].fill = header_fill
 ws.merge_cells(f'A{row}:B{row}')
 row += 1
 
-for label, value in [('報告檔名', data['filename']), ('報告類型', data['report_type']), ('審核時間', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))]:
+for label, value in [('報告檔名', analysis_data['filename']), ('報告類型', analysis_data['report_type']), ('審核時間', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))]:
     ws[f'A{row}'] = label
     ws[f'A{row}'].font = label_font
     ws[f'A{row}'].fill = label_fill
     ws[f'A{row}'].border = thin_border
     ws[f'B{row}'] = value
-    ws[f'B{row}'].font = content_font
+    ws[f'B{row}'].font = Font(size=10)
     ws[f'B{row}'].border = thin_border
     ws[f'B{row}'].alignment = Alignment(wrap_text=True, vertical='center')
     row += 1
@@ -163,7 +165,7 @@ ws[f'A{row}'].font = label_font
 ws[f'A{row}'].fill = label_fill
 ws[f'A{row}'].border = thin_border
 verdict_map = {'PASS': '✅ PASS - 通過', 'FAIL': '❌ FAIL - 不通過', 'WARN': '⚠️ WARN - 需澄清', 'CONTRADICTION': '🔴 CONTRADICTION - 矛盾'}
-ws[f'B{row}'] = verdict_map.get(data['verdict'], data['verdict'])
+ws[f'B{row}'] = verdict_map.get(analysis_data['verdict'], analysis_data['verdict'])
 ws[f'B{row}'].font = Font(bold=True, size=12, color="FFFFFF")
 ws[f'B{row}'].fill = PatternFill(start_color=verdict_color, end_color=verdict_color, fill_type="solid")
 ws[f'B{row}'].border = thin_border
@@ -173,7 +175,7 @@ ws[f'A{row}'] = '風險燈號'
 ws[f'A{row}'].font = label_font
 ws[f'A{row}'].fill = label_fill
 ws[f'A{row}'].border = thin_border
-ws[f'B{row}'] = data['risk_level']
+ws[f'B{row}'] = analysis_data['risk_level']
 ws[f'B{row}'].font = Font(bold=True, size=11)
 ws[f'B{row}'].border = thin_border
 row += 2
@@ -184,24 +186,21 @@ for section_title, section_key in [('分析過程', 'analysis_process'), ('主�
     ws[f'A{row}'].fill = subheader_fill
     ws.merge_cells(f'A{row}:B{row}')
     row += 1
-    content = data.get(section_key, '')
-    ws[f'A{row}'] = content
-    ws[f'A{row}'].font = content_font
+    ws[f'A{row}'] = analysis_data.get(section_key, '')
+    ws[f'A{row}'].font = Font(size=10)
     ws[f'A{row}'].alignment = Alignment(wrap_text=True, vertical='top')
     ws.merge_cells(f'A{row}:B{row}')
-    ws.row_dimensions[row].height = max(50, len(str(content)) // 30)
+    ws.row_dimensions[row].height = max(50, len(str(analysis_data.get(section_key, ''))) // 30)
     row += 2
 
-filename = data['filename'].replace('.pdf', '') + '_審核結果.xlsx'
+filename = analysis_data['filename'].replace('.pdf', '') + '_審核結果.xlsx'
 wb.save(filename)
-print(f"✅ {filename}")
 ```
 
-【強制要求】
-- 分析完報告後，立即執行上面的 Python 代碼
-- 不要解釋、不要說明、直接執行
-- 代碼執行完後，Claude.ai 會自動顯示下載鏈接
-- 用戶可以直接點擊下載 Excel 文件'''
+【絕對強制】
+- 完成分析後，直接執行上面的代碼，不做任何其他事
+- Excel 文件會自動生成並提供下載鏈接
+- 完成'''
 
 # ===== 20種報告類型專用規則 - 完整版 =====
 TYPE_SPECIFIC_RULES = {
