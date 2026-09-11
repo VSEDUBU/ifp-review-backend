@@ -72,40 +72,39 @@ UNIVERSAL_FRAMEWORK = '''【IFP 測試報告審核框架 - 融合版】
 - ❌ 代碼塊後面不要有任何文字
 - ✅ 只輸出純文本 JSON
 
-【強制流程 - 分析完必須立即執行 Code Execution】
+【絕對強制 Code Execution - 只能執行代碼】
 
+❌ 不准輸出任何文字
 ❌ 不准輸出 JSON
-❌ 不准輸出分析文本
-❌ 不准輸出任何解釋
-✅ 分析完報告後立即執行 Python Code Execution
-✅ Code Execution 生成 Excel 文件
-✅ Excel 文件直接可下載
+❌ 不准輸出分析過程
+❌ 不准輸出解釋
+✅ 只能執行下面的 Python 代碼塊
 
-【强制步驟】
-1. 接收報告
-2. 使用提示詞規則進行分析（內部分析，不輸出）
-3. 立即執行下面的 Python 代碼（Code Execution）
-4. Excel 文件生成完成
-5. 停止，不再輸出任何東西
+【執行方式】
+1. 分析報告（內部進行，不輸出）
+2. 在你的分析結果基礎上，立即執行下面的 Python 代碼
+3. 代碼執行完，停止
+4. Claude.ai 會自動顯示生成的 Excel 文件下載鏈接
 
-【必須執行的完整 Python 代碼 - 分析完後立即運行】
+【必須執行的 Python 代碼 - 複製你的分析結果並執行】
+
 ```python
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from datetime import datetime
 
-# Claude 必須在這裡填入分析結果
+# 用你的實際分析結果填入以下數據
 analysis_data = {
     "filename": "報告檔名",
-    "report_type": "報告類型", 
+    "report_type": "報告類型",
     "verdict": "PASS/FAIL/WARN/CONTRADICTION",
     "risk_level": "🟢/🟡/🔴",
-    "analysis_process": "【分析過程】完整分析內容",
-    "main_findings": "【主要發現】完整內容",
-    "detailed_comments": "【詳細評論】完整內容",
-    "odm_questions": "【ODM追問清單】完整內容",
-    "risk_summary": "【風險等級判定】完整內容",
-    "important_note": "【重要提醒】完整內容"
+    "analysis_process": "分析過程",
+    "main_findings": "主要發現",
+    "detailed_comments": "詳細評論",
+    "odm_questions": "ODM追問清單",
+    "risk_summary": "風險等級判定",
+    "important_note": "重要提醒"
 }
 
 wb = Workbook()
@@ -197,10 +196,11 @@ filename = analysis_data['filename'].replace('.pdf', '') + '_審核結果.xlsx'
 wb.save(filename)
 ```
 
-【絕對強制】
-- 完成分析後，直接執行上面的代碼，不做任何其他事
-- Excel 文件會自動生成並提供下載鏈接
-- 完成'''
+【嚴格規則】
+- 看到上面的代碼塊 = 立即執行，不做任何其他事
+- 代碼執行完 = 停止，不輸出任何東西
+- Claude.ai 會自動在下方提供 Excel 文件下載鏈接
+'''
 
 # ===== 20種報告類型專用規則 - 完整版 =====
 TYPE_SPECIFIC_RULES = {
