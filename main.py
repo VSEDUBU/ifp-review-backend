@@ -677,7 +677,7 @@ def index():
 def health_check():
     return jsonify({
         'status': 'healthy',
-        'version': '9.2',
+        'version': '9.1-v6.1',
         'groq_configured': bool(GROQ_API_KEY),
         'openrouter_configured': bool(OPENROUTER_API_KEY),
         'timestamp': datetime.now().isoformat()
@@ -792,11 +792,188 @@ def review():
 @app.route('/api/version', methods=['GET'])
 def get_version():
     return jsonify({
-        'version': '9.2',
+        'version': '9.1-v6.1',
         'mode': '手動模式：JSON 代碼 → 工具生成 Excel',
         'framework': 'Merged RD 7-Step + EE-Test-Report-Review'
     })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=FLASK_PORT, debug=DEBUG_MODE)
+
+
+# ===== 優化 5: 增強 Prompt 指導 =====
+def buildEnhancedPrompt(reportType, reportText):
+    """添加一致性檢查、完整性檢查、風險自動判分"""
+    enhanced = f"""
+【增強審核指導】
+
+【一致性檢查】
+- 判定與發現是否匹配：
+  • 如果判定是「PASS」，發現中不應出現「風險」
+  • 如果判定是「FAIL」，必須有明確的失敗原因
+  • 如果判定是「WARN」，標明具體警告項目
+
+【完整性檢查】
+- 檢查應測項目是否都測了：
+  • 所有測試類型都有數據嗎？
+  • 是否遺漏了關鍵項目？
+  • 測試覆蓋率是否 100%？
+
+【風險自動判分 (0-100)】
+- 0-30：低風險，無需整改
+- 31-60：中風險，建議整改
+- 61-100：高風險，必須整改
+- 根據失敗數、警告數、規格偏差計分
+
+【最終判定規則】
+- 無失敗 + 無警告 = PASS (風險 0-30)
+- 有警告但無失敗 = WARN (風險 31-60)
+- 有失敗 = FAIL (風險 61-100)
+"""
+    return enhanced
+
+# ===== 優化 6: 改進 Metadata 檢查 =====
+def extractMetadata(reportText):
+    """自動提取報告元數據"""
+    metadata = {
+        'model': None,
+        'pn': None,
+        'version': None,
+        'lab': None,
+        'date': None,
+        'certified': False,
+        'signed': False,
+        'complete': True
+    }
+    
+    # 簡單的模式匹配
+    import re
+    
+    patterns = {
+        'model': r'(?:型號|Model|型号)[:：\s]+([A-Z0-9\-]+)',
+        'pn': r'(?:PN|P/N)[:：\s]+([A-Z0-9\-]+)',
+        'date': r'(?:日期|Date)[:：\s]+(\d{4}[-/]\d{1,2}[-/]\d{1,2})',
+        'lab': r'(?:實驗室|Lab|Laboratory)[:：\s]+([^\n]+)',
+        'certified': r'(?:認證|Certified|CB)',
+        'signed': r'(?:簽署|Signature|簽名)',
+    }
+    
+    for key, pattern in patterns.items():
+        if key in ['certified', 'signed']:
+            metadata[key] = bool(re.search(pattern, reportText, re.IGNORECASE))
+        else:
+            match = re.search(pattern, reportText, re.IGNORECASE)
+            if match:
+                metadata[key] = match.group(1)
+    
+    return metadata
+
+# ===== 優化 7: 數據一致性檢測 =====
+def checkDataConsistency(verdict, findings, measurements):
+    """檢查結論與數據是否一致"""
+    issues = []
+    
+    if verdict == 'PASS':
+        if any(word in str(findings).lower() for word in ['fail', '失敗', '不符', 'error']):
+            issues.append('❌ 矛盾：判定 PASS 但發現中有失敗項')
+    elif verdict == 'FAIL':
+        if 'fail' not in str(findings).lower() and '失敗' not in str(findings):
+            issues.append('❌ 矛盾：判定 FAIL 但發現中無明確失敗原因')
+    
+    return issues if issues else ['✅ 數據一致']
+
+# ===== 優化 11: 大文件處理 =====
+def handleLargeFile(pdf_file, chunkSize=5):
+    """分塊讀取大文件"""
+    text = ""
+    try:
+        with pdfplumber.open(pdf_file) as pdf:
+            totalPages = len(pdf.pages)
+            for i, page in enumerate(pdf.pages):
+                text += page.extract_text() + "\n"
+                if (i + 1) % chunkSize == 0:
+                    logger.info(f"進度: {int((i+1)/totalPages*100)}%")
+        return text
+    except Exception as e:
+        logger.error(f"大文件讀取失敗: {str(e)}")
+        return ""
+
+# ===== 優化 12: 審核速度優化 =====
+def cachedAnalysis(reportHash):
+    """結果緩存，避免重複分析"""
+    cache_file = f'/tmp/analysis_cache_{reportHash}.json'
+    try:
+        if os.path.exists(cache_file):
+            with open(cache_file, 'r') as f:
+                return json.load(f)
+    except:
+        pass
+    return None
+
+def saveAnalysisCache(reportHash, result):
+    """保存分析結果到緩存"""
+    try:
+        cache_file = f'/tmp/analysis_cache_{reportHash}.json'
+        with open(cache_file, 'w') as f:
+            json.dump(result, f)
+    except:
+        pass
+
+# ===== 優化 13: 審核報告統計 =====
+class AnalysisStatistics:
+    """審核統計和分析"""
+    
+    def __init__(self):
+        self.stats_file = '/tmp/analysis_stats.json'
+        self.stats = self.loadStats()
+    
+    def loadStats(self):
+        try:
+            with open(self.stats_file, 'r') as f:
+                return json.load(f)
+        except:
+            return {
+                'total': 0,
+                'pass_count': 0,
+                'fail_count': 0,
+                'warn_count': 0,
+                'by_type': {},
+                'common_issues': []
+            }
+    
+    def recordAnalysis(self, reportType, verdict, issues):
+        self.stats['total'] += 1
+        if verdict == 'PASS':
+            self.stats['pass_count'] += 1
+        elif verdict == 'FAIL':
+            self.stats['fail_count'] += 1
+        else:
+            self.stats['warn_count'] += 1
+        
+        if reportType not in self.stats['by_type']:
+            self.stats['by_type'][reportType] = {'pass': 0, 'fail': 0, 'warn': 0}
+        
+        self.stats['by_type'][reportType][verdict.lower()] += 1
+        
+        for issue in issues:
+            if issue not in self.stats['common_issues']:
+                self.stats['common_issues'].append(issue)
+        
+        self.saveStats()
+    
+    def saveStats(self):
+        try:
+            with open(self.stats_file, 'w') as f:
+                json.dump(self.stats, f)
+        except:
+            pass
+    
+    def getReport(self):
+        passRate = (self.stats['pass_count'] / self.stats['total'] * 100) if self.stats['total'] > 0 else 0
+        return {
+            'total_analyzed': self.stats['total'],
+            'pass_rate': f"{passRate:.1f}%",
+            'stats': self.stats,
+            'common_issues': self.stats['common_issues'][:5]
+        }
 
