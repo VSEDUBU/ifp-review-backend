@@ -677,7 +677,7 @@ def index():
 def health_check():
     return jsonify({
         'status': 'healthy',
-        'version': '9.1-Final',
+        'version': '9.2',
         'groq_configured': bool(GROQ_API_KEY),
         'openrouter_configured': bool(OPENROUTER_API_KEY),
         'timestamp': datetime.now().isoformat()
@@ -792,7 +792,7 @@ def review():
 @app.route('/api/version', methods=['GET'])
 def get_version():
     return jsonify({
-        'version': '9.1-Final',
+        'version': '9.2',
         'mode': '手動模式：JSON 代碼 → 工具生成 Excel',
         'framework': 'Merged RD 7-Step + EE-Test-Report-Review'
     })
