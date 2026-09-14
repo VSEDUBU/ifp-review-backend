@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFP 測試報告審核工具 v6.2 - 企業版</title>
+<title>IFP 測試報告審核工具 v6.1 - 企業版</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -222,17 +222,8 @@ header .subtitle {
 .type-group-header:hover { background: #E8EEF5; }
 .type-group-header.open { border-color: var(--accent); background: rgba(31,78,120,0.05); }
 
-.group-toggle {
-  font-size: 10px;
-  transition: transform 0.3s ease;
-}
-
-.type-group-header.open .group-toggle {
-  transform: rotate(180deg);
-}
-
 .type-group-body {
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 2px;
   padding: 3px 4px 4px 4px;
@@ -241,16 +232,9 @@ header .subtitle {
   border-radius: 0 0 6px 6px;
   background: var(--bg2);
   margin-top: -1px;
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease, opacity 0.3s ease;
-  opacity: 0;
 }
 
-.type-group-header.open + .type-group-body { 
-  max-height: 500px;
-  opacity: 1;
-}
+.type-group-header.open + .type-group-body { display: flex; }
 
 .type-item {
   display: flex; align-items: center; gap: 8px;
@@ -262,16 +246,10 @@ header .subtitle {
   width: 100%; text-align: left; font-size: 12px;
 }
 
-.type-item:hover { 
-  background: rgba(31,78,120,0.05);
-  border-color: var(--accent);
-  color: var(--accent);
-}
+.type-item:hover { background: var(--card2); border-color: var(--border); }
 .type-item.active {
-  background: rgba(31,78,120,0.12);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
+  background: rgba(31,78,120,0.07);
+  border-color: rgba(31,78,120,0.25);
 }
 
 .analyze-btn {
@@ -470,7 +448,7 @@ header .subtitle {
 <header>
   <div class="logo-dot"></div>
   <h1>IFP 測試報告審核工具</h1>
-  <span class="subtitle">v6.2 企業版</span>
+  <span class="subtitle">v6.1 企業版</span>
   <div class="hdr-right">
     <span class="version-tag">ENTERPRISE</span>
   </div>
@@ -521,7 +499,7 @@ header .subtitle {
     <div class="idle-state">
       <div style="font-size: 32px;">📋</div>
       <div class="idle-title">上傳測試報告開始審核</div>
-      <div style="font-size: 12px; color: var(--muted); margin-top: 8px;">v6.2 企業版 - 支持多格式導出</div>
+      <div style="font-size: 12px; color: var(--muted); margin-top: 8px;">v6.1 企業版 - 支持多格式導出</div>
     </div>
   </div>
 </div>
@@ -582,8 +560,7 @@ function renderTypeGroups() {
     header.className = 'type-group-header';
     header.innerHTML = `
       <div style="flex: 1;">${group}</div>
-      <div style="color: var(--muted); font-size: 10px; margin-right: 8px;">(${items.length})</div>
-      <div class="group-toggle">▼</div>
+      <div style="color: var(--muted); font-size: 10px;">(${items.length})</div>
     `;
     header.onclick = () => {
       header.classList.toggle('open');
@@ -959,3 +936,126 @@ init();
 </body>
 </html>
 
+/* 分類展開樣式 */
+.category-group { margin-bottom: 12px; }
+.category-header { padding: 10px; background: #E8EEF5; cursor: pointer; border-radius: 6px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s; }
+.category-header:hover { background: #D0D8E0; }
+.category-header.open { background: rgba(31,78,120,0.15); color: #1F4E78; }
+.category-toggle { transition: transform 0.3s; }
+.category-header.open .category-toggle { transform: rotate(180deg); }
+.category-items { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+.category-header.open + .category-items { max-height: 500px; }
+
+/* 進度條樣式 */
+.progress-container { display: none; margin: 16px 0; padding: 12px; background: #F0F4F8; border-radius: 6px; }
+.progress-bar { width: 100%; height: 6px; background: #E0E0E0; border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #70AD47, #1F4E78); width: 0%; transition: width 0.3s; }
+.progress-text { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* 結果顯示改進 */
+.result-verdict { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 8px; font-weight: 600; font-size: 18px; margin-bottom: 16px; }
+.result-verdict.pass { background: rgba(112,173,71,0.15); color: #70AD47; border: 2px solid #70AD47; }
+.result-verdict.fail { background: rgba(255,0,0,0.15); color: #FF0000; border: 2px solid #FF0000; }
+.result-verdict.warn { background: rgba(255,192,0,0.15); color: #FFC000; border: 2px solid #FFC000; }
+
+/* 結果卡片 */
+.result-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.result-card-title { font-weight: 600; color: #1F4E78; margin-bottom: 8px; }
+.result-card-content { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+/* 移動端優化 */
+@media (max-width: 768px) {
+  .sidebar { width: 100%; max-height: 40%; overflow-y: auto; }
+  .main-panel { height: 60%; }
+  .result-verdict { font-size: 16px; padding: 12px; }
+  .category-header { padding: 8px; font-size: 13px; }
+}
+
+<script>
+// 優化 1: 分類展開功能
+function initCategoryGroups() {
+  document.querySelectorAll('.category-header').forEach(header => {
+    header.addEventListener('click', function() {
+      this.classList.toggle('open');
+    });
+  });
+}
+
+// 優化 2: 進度條顯示
+function showProgress(percentage, step) {
+  const container = document.querySelector('.progress-container');
+  if (container) {
+    container.style.display = 'block';
+    document.querySelector('.progress-fill').style.width = percentage + '%';
+    document.querySelector('.progress-text').textContent = step;
+  }
+}
+
+// 優化 3: 改進結果顯示
+function displayResult(verdict, findings) {
+  const verdictEl = document.querySelector('.result-verdict');
+  if (verdictEl) {
+    verdictEl.className = 'result-verdict ' + verdict.toLowerCase();
+    verdictEl.innerHTML = `<span>${verdict === 'PASS' ? '✅' : verdict === 'FAIL' ? '❌' : '⚠️'}</span><span>${verdict}</span>`;
+  }
+  
+  // 改進結果卡片顯示
+  const cardsContainer = document.querySelector('.result-cards');
+  if (cardsContainer && findings) {
+    cardsContainer.innerHTML = Object.entries(findings).map(([key, value]) => `
+      <div class="result-card">
+        <div class="result-card-title">${key}</div>
+        <div class="result-card-content">${value}</div>
+      </div>
+    `).join('');
+  }
+}
+
+// 優化 8: 最近使用快速選擇
+function saveRecentType(typeId) {
+  let recent = JSON.parse(localStorage.getItem('recentTypes') || '[]');
+  recent = recent.filter(t => t !== typeId);
+  recent.unshift(typeId);
+  recent = recent.slice(0, 5);
+  localStorage.setItem('recentTypes', JSON.stringify(recent));
+}
+
+function showRecentTypes() {
+  const recent = JSON.parse(localStorage.getItem('recentTypes') || '[]');
+  if (recent.length > 0) {
+    console.log('最近使用報告類型:', recent);
+  }
+}
+
+// 優化 10: 審核歷史記錄
+function saveAuditHistory(filename, verdict, timestamp) {
+  let history = JSON.parse(localStorage.getItem('auditHistory') || '[]');
+  history.push({ filename, verdict, timestamp: new Date().toLocaleString() });
+  history = history.slice(-20);
+  localStorage.setItem('auditHistory', JSON.stringify(history));
+}
+
+function displayAuditHistory() {
+  const history = JSON.parse(localStorage.getItem('auditHistory') || '[]');
+  console.log('審核歷史:', history);
+}
+
+// 優化 9: 智能提示
+function showTooltip(element, text) {
+  const tooltip = document.createElement('div');
+  tooltip.className = 'tooltip';
+  tooltip.textContent = text;
+  tooltip.style.cssText = 'position: absolute; background: #333; color: white; padding: 6px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap; z-index: 1000;';
+  document.body.appendChild(tooltip);
+  
+  element.addEventListener('mouseenter', () => tooltip.style.display = 'block');
+  element.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+  initCategoryGroups();
+  showRecentTypes();
+  displayAuditHistory();
+});
+</script>
