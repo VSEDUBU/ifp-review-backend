@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFP 測試報告審核工具 v6.0 - 企業版</title>
+<title>IFP 測試報告審核工具 v6.2 - 企業版</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -222,8 +222,17 @@ header .subtitle {
 .type-group-header:hover { background: #E8EEF5; }
 .type-group-header.open { border-color: var(--accent); background: rgba(31,78,120,0.05); }
 
+.group-toggle {
+  font-size: 10px;
+  transition: transform 0.3s ease;
+}
+
+.type-group-header.open .group-toggle {
+  transform: rotate(180deg);
+}
+
 .type-group-body {
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 3px 4px 4px 4px;
@@ -232,9 +241,16 @@ header .subtitle {
   border-radius: 0 0 6px 6px;
   background: var(--bg2);
   margin-top: -1px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
 }
 
-.type-group-header.open + .type-group-body { display: flex; }
+.type-group-header.open + .type-group-body { 
+  max-height: 500px;
+  opacity: 1;
+}
 
 .type-item {
   display: flex; align-items: center; gap: 8px;
@@ -246,10 +262,16 @@ header .subtitle {
   width: 100%; text-align: left; font-size: 12px;
 }
 
-.type-item:hover { background: var(--card2); border-color: var(--border); }
+.type-item:hover { 
+  background: rgba(31,78,120,0.05);
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .type-item.active {
-  background: rgba(31,78,120,0.07);
-  border-color: rgba(31,78,120,0.25);
+  background: rgba(31,78,120,0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .analyze-btn {
@@ -560,7 +582,8 @@ function renderTypeGroups() {
     header.className = 'type-group-header';
     header.innerHTML = `
       <div style="flex: 1;">${group}</div>
-      <div style="color: var(--muted); font-size: 10px;">(${items.length})</div>
+      <div style="color: var(--muted); font-size: 10px; margin-right: 8px;">(${items.length})</div>
+      <div class="group-toggle">▼</div>
     `;
     header.onclick = () => {
       header.classList.toggle('open');
