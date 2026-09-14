@@ -441,6 +441,135 @@ header .subtitle {
   .sidebar { width: 240px; }
   .main-panel { padding: 16px 20px; }
 }
+
+/* ===== 優化 1: 分類展開/收起樣式 ===== */
+.category-group { margin-bottom: 12px; }
+.category-header { 
+  padding: 10px 12px; 
+  background: #E8EEF5; 
+  cursor: pointer; 
+  border-radius: 6px; 
+  font-weight: 600; 
+  font-size: 13px;
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  transition: all 0.3s;
+}
+.category-header:hover { background: #D0D8E0; }
+.category-header.open { background: rgba(31,78,120,0.15); color: #1F4E78; }
+.category-toggle { font-size: 11px; transition: transform 0.3s; }
+.category-header.open .category-toggle { transform: rotate(180deg); }
+.category-items { 
+  max-height: 0; 
+  overflow: hidden; 
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+.category-header.open + .category-items { max-height: 600px; opacity: 1; }
+
+/* ===== 優化 2: 進度條可視化 ===== */
+.progress-container { 
+  display: none; 
+  margin: 16px 0; 
+  padding: 12px; 
+  background: #F0F4F8; 
+  border-radius: 6px;
+  border-left: 4px solid var(--accent);
+}
+.progress-bar { 
+  width: 100%; 
+  height: 8px; 
+  background: #E0E0E0; 
+  border-radius: 4px; 
+  overflow: hidden;
+}
+.progress-fill { 
+  height: 100%; 
+  background: linear-gradient(90deg, #70AD47, #1F4E78); 
+  width: 0%; 
+  transition: width 0.3s;
+}
+.progress-text { 
+  font-size: 12px; 
+  color: var(--muted); 
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* ===== 優化 3: 改進結果顯示 ===== */
+.result-verdict { 
+  display: flex; 
+  align-items: center; 
+  gap: 12px; 
+  padding: 16px; 
+  border-radius: 8px; 
+  font-weight: 600; 
+  font-size: 18px; 
+  margin-bottom: 16px;
+  border: 2px solid transparent;
+}
+.result-verdict.pass { 
+  background: rgba(112,173,71,0.15); 
+  color: #70AD47; 
+  border-color: #70AD47;
+}
+.result-verdict.fail { 
+  background: rgba(255,0,0,0.15); 
+  color: #FF0000; 
+  border-color: #FF0000;
+}
+.result-verdict.warn { 
+  background: rgba(255,192,0,0.15); 
+  color: #FFC000; 
+  border-color: #FFC000;
+}
+
+.result-card { 
+  background: white; 
+  border: 1px solid var(--border); 
+  border-radius: 8px; 
+  padding: 16px; 
+  margin-bottom: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.result-card-title { 
+  font-weight: 600; 
+  color: #1F4E78; 
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.result-card-content { 
+  font-size: 13px; 
+  color: var(--muted); 
+  line-height: 1.6;
+}
+
+/* ===== 優化 4: 移動端優化 ===== */
+@media (max-width: 768px) {
+  .sidebar { 
+    width: 100%; 
+    max-height: 40%; 
+    overflow-y: auto; 
+    border-bottom: 1px solid var(--border);
+  }
+  .main-panel { 
+    height: 60%; 
+    overflow-y: auto;
+  }
+  .result-verdict { 
+    font-size: 16px; 
+    padding: 12px; 
+  }
+  .category-header { 
+    padding: 8px 10px; 
+    font-size: 12px; 
+  }
+  .result-card { 
+    padding: 12px;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -930,49 +1059,7 @@ window.onbeforeunload = () => {
   localStorage.setItem('ifp_backend_url', document.getElementById('backendUrl').value);
 };
 
-init();
-</script>
-
-</body>
-</html>
-
-/* 分類展開樣式 */
-.category-group { margin-bottom: 12px; }
-.category-header { padding: 10px; background: #E8EEF5; cursor: pointer; border-radius: 6px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s; }
-.category-header:hover { background: #D0D8E0; }
-.category-header.open { background: rgba(31,78,120,0.15); color: #1F4E78; }
-.category-toggle { transition: transform 0.3s; }
-.category-header.open .category-toggle { transform: rotate(180deg); }
-.category-items { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-.category-header.open + .category-items { max-height: 500px; }
-
-/* 進度條樣式 */
-.progress-container { display: none; margin: 16px 0; padding: 12px; background: #F0F4F8; border-radius: 6px; }
-.progress-bar { width: 100%; height: 6px; background: #E0E0E0; border-radius: 3px; overflow: hidden; }
-.progress-fill { height: 100%; background: linear-gradient(90deg, #70AD47, #1F4E78); width: 0%; transition: width 0.3s; }
-.progress-text { font-size: 12px; color: var(--muted); margin-top: 4px; }
-
-/* 結果顯示改進 */
-.result-verdict { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 8px; font-weight: 600; font-size: 18px; margin-bottom: 16px; }
-.result-verdict.pass { background: rgba(112,173,71,0.15); color: #70AD47; border: 2px solid #70AD47; }
-.result-verdict.fail { background: rgba(255,0,0,0.15); color: #FF0000; border: 2px solid #FF0000; }
-.result-verdict.warn { background: rgba(255,192,0,0.15); color: #FFC000; border: 2px solid #FFC000; }
-
-/* 結果卡片 */
-.result-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
-.result-card-title { font-weight: 600; color: #1F4E78; margin-bottom: 8px; }
-.result-card-content { font-size: 13px; color: var(--muted); line-height: 1.6; }
-
-/* 移動端優化 */
-@media (max-width: 768px) {
-  .sidebar { width: 100%; max-height: 40%; overflow-y: auto; }
-  .main-panel { height: 60%; }
-  .result-verdict { font-size: 16px; padding: 12px; }
-  .category-header { padding: 8px; font-size: 13px; }
-}
-
-<script>
-// 優化 1: 分類展開功能
+/* ===== 優化 1: 分類展開/收起功能 ===== */
 function initCategoryGroups() {
   document.querySelectorAll('.category-header').forEach(header => {
     header.addEventListener('click', function() {
@@ -981,25 +1068,25 @@ function initCategoryGroups() {
   });
 }
 
-// 優化 2: 進度條顯示
+/* ===== 優化 2: 進度條顯示 ===== */
 function showProgress(percentage, step) {
   const container = document.querySelector('.progress-container');
   if (container) {
     container.style.display = 'block';
     document.querySelector('.progress-fill').style.width = percentage + '%';
-    document.querySelector('.progress-text').textContent = step;
+    document.querySelector('.progress-text').textContent = `進度: ${step}`;
   }
 }
 
-// 優化 3: 改進結果顯示
+/* ===== 優化 3: 改進結果顯示 ===== */
 function displayResult(verdict, findings) {
   const verdictEl = document.querySelector('.result-verdict');
   if (verdictEl) {
     verdictEl.className = 'result-verdict ' + verdict.toLowerCase();
-    verdictEl.innerHTML = `<span>${verdict === 'PASS' ? '✅' : verdict === 'FAIL' ? '❌' : '⚠️'}</span><span>${verdict}</span>`;
+    const icon = verdict === 'PASS' ? '✅' : verdict === 'FAIL' ? '❌' : '⚠️';
+    verdictEl.innerHTML = `<span style="font-size: 24px;">${icon}</span><span>${verdict}</span>`;
   }
   
-  // 改進結果卡片顯示
   const cardsContainer = document.querySelector('.result-cards');
   if (cardsContainer && findings) {
     cardsContainer.innerHTML = Object.entries(findings).map(([key, value]) => `
@@ -1011,7 +1098,7 @@ function displayResult(verdict, findings) {
   }
 }
 
-// 優化 8: 最近使用快速選擇
+/* ===== 優化 8: 最近使用報告類型 ===== */
 function saveRecentType(typeId) {
   let recent = JSON.parse(localStorage.getItem('recentTypes') || '[]');
   recent = recent.filter(t => t !== typeId);
@@ -1023,39 +1110,117 @@ function saveRecentType(typeId) {
 function showRecentTypes() {
   const recent = JSON.parse(localStorage.getItem('recentTypes') || '[]');
   if (recent.length > 0) {
-    console.log('最近使用報告類型:', recent);
+    console.log('✅ 最近使用報告類型:', recent);
   }
 }
 
-// 優化 10: 審核歷史記錄
-function saveAuditHistory(filename, verdict, timestamp) {
+/* ===== 優化 9: 智能提示 Tooltip ===== */
+function enableTooltips() {
+  document.querySelectorAll('[data-tooltip]').forEach(element => {
+    element.addEventListener('mouseenter', function() {
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
+      tooltip.textContent = this.getAttribute('data-tooltip');
+      tooltip.style.cssText = 'position: absolute; background: #333; color: white; padding: 6px 10px; border-radius: 4px; font-size: 11px; white-space: nowrap; z-index: 1000; pointer-events: none;';
+      document.body.appendChild(tooltip);
+      
+      const rect = this.getBoundingClientRect();
+      tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+      tooltip.style.top = (rect.top - tooltip.offsetHeight - 8) + 'px';
+      
+      this._tooltip = tooltip;
+    });
+    
+    element.addEventListener('mouseleave', function() {
+      if (this._tooltip) {
+        this._tooltip.remove();
+        delete this._tooltip;
+      }
+    });
+  });
+}
+
+/* ===== 優化 10: 審核歷史記錄 ===== */
+function saveAuditHistory(filename, verdict, typeId) {
   let history = JSON.parse(localStorage.getItem('auditHistory') || '[]');
-  history.push({ filename, verdict, timestamp: new Date().toLocaleString() });
+  history.push({ 
+    filename, 
+    verdict, 
+    typeId,
+    timestamp: new Date().toLocaleString() 
+  });
   history = history.slice(-20);
   localStorage.setItem('auditHistory', JSON.stringify(history));
 }
 
 function displayAuditHistory() {
   const history = JSON.parse(localStorage.getItem('auditHistory') || '[]');
-  console.log('審核歷史:', history);
+  if (history.length > 0) {
+    console.log('📋 審核歷史 (最近 20 筆):', history);
+    return history;
+  }
+  return [];
 }
 
-// 優化 9: 智能提示
-function showTooltip(element, text) {
-  const tooltip = document.createElement('div');
-  tooltip.className = 'tooltip';
-  tooltip.textContent = text;
-  tooltip.style.cssText = 'position: absolute; background: #333; color: white; padding: 6px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap; z-index: 1000;';
-  document.body.appendChild(tooltip);
+/* ===== 優化 11: 大文件處理進度反饋 ===== */
+function initLargeFileUpload() {
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput) {
+    fileInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file && file.size > 5 * 1024 * 1024) {
+        console.log('📁 大文件上傳中，大小:', (file.size / 1024 / 1024).toFixed(2) + 'MB');
+        showProgress(25, '上傳中...');
+      }
+    });
+  }
+}
+
+/* ===== 優化 12: 審核速度優化提示 ===== */
+function optimizeAnalysisSpeed() {
+  const originalAnalyze = window.analyzeReport;
+  window.analyzeReport = function() {
+    showProgress(0, '準備分析...');
+    setTimeout(() => showProgress(50, '分析中...'), 500);
+    return originalAnalyze.apply(this, arguments);
+  };
+}
+
+/* ===== 優化 13: 審核統計顯示 ===== */
+function showAnalysisStats() {
+  const history = displayAuditHistory();
+  if (history.length === 0) return;
   
-  element.addEventListener('mouseenter', () => tooltip.style.display = 'block');
-  element.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+  const passCount = history.filter(h => h.verdict === 'PASS').length;
+  const failCount = history.filter(h => h.verdict === 'FAIL').length;
+  const warnCount = history.filter(h => h.verdict === 'WARN').length;
+  const passRate = ((passCount / history.length) * 100).toFixed(1);
+  
+  const stats = {
+    '總審核數': history.length,
+    '通過 (PASS)': passCount,
+    '失敗 (FAIL)': failCount,
+    '警告 (WARN)': warnCount,
+    '通過率': passRate + '%'
+  };
+  
+  console.log('📊 審核統計:', stats);
+  return stats;
 }
 
-// 初始化
-document.addEventListener('DOMContentLoaded', function() {
+/* ===== 初始化所有優化功能 ===== */
+function initOptimizations() {
   initCategoryGroups();
   showRecentTypes();
-  displayAuditHistory();
-});
+  enableTooltips();
+  initLargeFileUpload();
+  optimizeAnalysisSpeed();
+  console.log('✅ 所有優化功能已初始化');
+}
+
+init();
+initOptimizations();
 </script>
+
+</body>
+</html>
