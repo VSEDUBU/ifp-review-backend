@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IFP 測試報告審核工具 v6.2 - 企業版</title>
+<title>IFP 測試報告審核工具 v6.3 - 企業版</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -577,7 +577,7 @@ header .subtitle {
 <header>
   <div class="logo-dot"></div>
   <h1>IFP 測試報告審核工具</h1>
-  <span class="subtitle">v6.2 企業版</span>
+  <span class="subtitle">v6.3 企業版</span>
   <div class="hdr-right">
     <span class="version-tag">ENTERPRISE</span>
   </div>
@@ -628,7 +628,7 @@ header .subtitle {
     <div class="idle-state">
       <div style="font-size: 32px;">📋</div>
       <div class="idle-title">上傳測試報告開始審核</div>
-      <div style="font-size: 12px; color: var(--muted); margin-top: 8px;">v6.2 企業版 - 支持多格式導出</div>
+      <div style="font-size: 12px; color: var(--muted); margin-top: 8px;">v6.3 企業版 - 支持多格式導出</div>
     </div>
   </div>
 </div>
@@ -890,15 +890,6 @@ function showManualPrompt(prompt) {
         <a href="https://claude.ai" target="_blank">🔗 打開 Claude.ai</a>
       </div>
 
-      <div style="margin-top: 20px; padding: 16px; background: var(--card2); border-radius: 8px; border-left: 4px solid var(--accent);">
-        <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 10px;">📋 步驟 2：粘貼 JSON 代碼下載 Excel</div>
-        <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">Claude.ai 會輸出一個 JSON 代碼塊（只有代碼，分析內容不會顯示）。複製這個 JSON 代碼，粘貼到下方，即直接下載 Excel：</p>
-        <textarea class="field-textarea" id="jsonInput" placeholder="粘貼 Claude 輸出的 JSON 代碼塊..."></textarea>
-        <button onclick="generateExcelFromJson()" style="width: 100%; margin-top: 10px; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
-          📥 粘貼 JSON → 直接下載 Excel
-        </button>
-      </div>
-
       <div class="result-actions" style="margin-top: 16px;">
         <button onclick="startNewAnalysis()">🔄 返回</button>
       </div>
@@ -975,79 +966,6 @@ function cancelAnalysis() {
 function startNewAnalysis() {
   clearFile();
   location.reload();
-}
-
-function generateExcelFromJson() {
-  const jsonInput = document.getElementById('jsonInput').value.trim();
-  
-  if (!jsonInput) {
-    alert('❌ 請粘貼 JSON 代碼');
-    return;
-  }
-  
-  try {
-    // 提取 JSON 代碼塊
-    const jsonMatch = jsonInput.match(/```json\n?([\s\S]*?)\n?```/) || jsonInput.match(/(\{[\s\S]*\})/);
-    if (!jsonMatch) {
-      alert('❌ 找不到有效的 JSON 代碼');
-      return;
-    }
-    
-    const jsonStr = jsonMatch[1];
-    let data = JSON.parse(jsonStr);
-    
-    // 補充缺失字段 - 支持多種字段名稱
-    if (!data.filename) data.filename = 'report.pdf';
-    if (!data.verdict && data.overall_verdict) {
-      data.verdict = data.overall_verdict;
-    }
-    if (!data.verdict) data.verdict = 'PASS';
-    if (!data.report_type && data.product_model) {
-      data.report_type = data.product_model;
-    }
-    if (!data.report_type) data.report_type = 'OTHER';
-    if (!data.analysis_process) data.analysis_process = '';
-    if (!data.main_findings) data.main_findings = '';
-    if (!data.detailed_comments) data.detailed_comments = '';
-    if (!data.odm_questions) data.odm_questions = '';
-    if (!data.risk_summary) data.risk_summary = '';
-    
-    // 驗證必要字段
-    if (!data.filename || !data.verdict) {
-      alert('❌ JSON 缺少必要字段 (filename, verdict)');
-      return;
-    }
-    
-    // 發送到後端生成 Excel
-    const backendUrl = document.getElementById('backendUrl').value || 'https://ifp-review-backend.onrender.com';
-    
-    fetch(`${backendUrl}/api/export/excel`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    })
-    .then(response => {
-      if (!response.ok) throw new Error('Excel 生成失敗');
-      return response.blob();
-    })
-    .then(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${data.filename.replace('.pdf', '')}_審核結果.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      alert('✅ Excel 已下載！');
-      document.getElementById('jsonInput').value = '';
-    })
-    .catch(error => {
-      alert('❌ 錯誤：' + error.message);
-    });
-    
-  } catch (error) {
-    alert('❌ JSON 格式錯誤：' + error.message);
-  }
 }
 
 function loadSettings() {
